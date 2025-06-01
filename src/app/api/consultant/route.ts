@@ -1,0 +1,239 @@
+import { NextRequest } from 'next/server';
+import { 
+  authenticateRequest, 
+  hasFeatureAccess, 
+  hasTokens, 
+  canUseProModel,
+  createErrorResponse, 
+  createSuccessResponse,
+  validateMethod,
+  logAPIUsage
+} from '@/lib/auth';
+import { generateConsultantResponse, countTokens } from '@/lib/gemini';
+import { saveConversation, getConversation, updateTokenUsage } from '@/lib/database';
+import { supabase } from '@/lib/supabase';
+
+/**
+ * Legal Consultant API endpoint
+ * Handles AI-powered legal consultation with conversation history
+ */
+export async function POST(request: NextRequest) {
+  try {
+    // Validate request method
+    if (!validateMethod(request, ['POST'])) {
+      return createErrorResponse('Method not allowed', 405);
+    }
+
+    // Authenticate user
+    const user = await authenticateRequest(request);
+    if (!user) {
+      return createErrorResponse('Unauthorized', 401);
+    }
+
+    // Check feature access
+    if (!hasFeatureAccess(user, 'consultant')) {
+      return createErrorResponse('Access denied - Consultant feature requires paid subscription', 403);
+    }
+
+    // Parse request body
+    const body = await request.json();
+    const { message, conversationId, useProModel = false } = body;
+
+    if (!message || typeof message !== 'string' || message.trim().length === 0) {
+      return createErrorResponse('Message is required');
+    }
+
+    if (message.length > 3000) {
+      return createErrorResponse('Message too long (max 3000 characters)');
+    }
+
+    // Check if user can use Pro model
+    if (useProModel && !canUseProModel(user)) {
+      return createErrorResponse('Pro model access requires VIP subscription', 403);
+    }
+
+    // Estimate token usage (Pro model costs 10x more)
+    const baseTokens = countTokens(message) + 300;
+    const estimatedTokens = useProModel ? baseTokens * 10 : baseTokens;
+
+    // Check token availability
+    if (!hasTokens(user, estimatedTokens)) {
+      return createErrorResponse('Insufficient tokens', 402);
+    }
+
+    try {
+      // Step 1: Get conversation history if conversationId provided
+      let conversationHistory: Array<{ role: 'user' | 'assistant'; content: string; timestamp: string }> = [];
+      
+      if (conversationId) {
+        const conversation = await getConversation(conversationId, user.id);
+        if (conversation) {
+          conversationHistory = conversation.messages;
+        }
+      }
+
+      // Step 2: Add current user message to history
+      const currentTimestamp = new Date().toISOString();
+      conversationHistory.push({
+        role: 'user',
+        content: message,
+        timestamp: currentTimestamp
+      });
+
+      // Step 3: Generate AI response
+      const aiResponse = await generateConsultantResponse(
+        conversationHistory.map(msg => ({ role: msg.role, content: msg.content })),
+        useProModel
+      );
+
+      // Step 4: Add AI response to history
+      conversationHistory.push({
+        role: 'assistant',
+        content: aiResponse,
+        timestamp: new Date().toISOString()
+      });
+
+      // Step 5: Calculate actual token usage
+      const conversationTokens = conversationHistory.reduce((sum, msg) => sum + countTokens(msg.content), 0);
+      const actualTokens = Math.min(conversationTokens, useProModel ? 5000 : 1500) + (useProModel ? 100 : 50);
+      const finalTokens = useProModel ? actualTokens * 10 : actualTokens;
+
+      // Step 6: Update user token usage
+      await updateTokenUsage(user.id, finalTokens);
+
+      // Step 7: Save conversation
+      const savedConversationId = await saveConversation(
+        user.id,
+        conversationId,
+        conversationHistory,
+        conversationHistory.length === 2 ? `諮詢: ${message.substring(0, 50)}...` : undefined
+      );
+
+      // Step 8: Log API usage
+      await logAPIUsage(user.id, 'consultant', finalTokens, {
+        message_length: message.length,
+        response_length: aiResponse.length,
+        conversation_length: conversationHistory.length,
+        use_pro_model: useProModel
+      });
+
+      // Format response
+      const response = {
+        message: aiResponse,
+        conversationId: savedConversationId,
+        tokens_used: finalTokens,
+        remaining_tokens: user.monthly_tokens - user.used_tokens - finalTokens,
+        model_used: useProModel ? 'gemini-1.5-pro' : 'gemini-2.0-flash-exp'
+      };
+
+      return createSuccessResponse(response);
+
+    } catch (aiError) {
+      console.error('AI processing error:', aiError);
+      return createErrorResponse('AI processing failed', 500);
+    }
+
+  } catch (error) {
+    console.error('Consultant API error:', error);
+    return createErrorResponse('Internal server error', 500);
+  }
+}
+
+/**
+ * Get conversation history for authenticated user
+ */
+export async function GET(request: NextRequest) {
+  try {
+    // Authenticate user
+    const user = await authenticateRequest(request);
+    if (!user) {
+      return createErrorResponse('Unauthorized', 401);
+    }
+
+    // Check feature access
+    if (!hasFeatureAccess(user, 'consultant')) {
+      return createErrorResponse('Access denied', 403);
+    }
+
+    // Get query parameters
+    const { searchParams } = new URL(request.url);
+    const conversationId = searchParams.get('conversationId');
+    const limit = parseInt(searchParams.get('limit') || '20');
+    const offset = parseInt(searchParams.get('offset') || '0');
+
+    if (conversationId) {
+      // Get specific conversation
+      const conversation = await getConversation(conversationId, user.id);
+      if (!conversation) {
+        return createErrorResponse('Conversation not found', 404);
+      }
+      return createSuccessResponse({ conversation });
+    } else {
+      // Get conversation list
+      const { data, error } = await supabase
+        .from('conversations')
+        .select('id, title, created_at, updated_at')
+        .eq('user_id', user.id)
+        .order('updated_at', { ascending: false })
+        .range(offset, offset + limit - 1);
+
+      if (error) {
+        console.error('Database error:', error);
+        return createErrorResponse('Failed to fetch conversations', 500);
+      }
+
+      return createSuccessResponse({
+        conversations: data || [],
+        total: data?.length || 0
+      });
+    }
+
+  } catch (error) {
+    console.error('Consultant history API error:', error);
+    return createErrorResponse('Internal server error', 500);
+  }
+}
+
+/**
+ * Delete conversation
+ */
+export async function DELETE(request: NextRequest) {
+  try {
+    // Authenticate user
+    const user = await authenticateRequest(request);
+    if (!user) {
+      return createErrorResponse('Unauthorized', 401);
+    }
+
+    // Check feature access
+    if (!hasFeatureAccess(user, 'consultant')) {
+      return createErrorResponse('Access denied', 403);
+    }
+
+    // Get conversation ID from query parameters
+    const { searchParams } = new URL(request.url);
+    const conversationId = searchParams.get('conversationId');
+
+    if (!conversationId) {
+      return createErrorResponse('Conversation ID is required');
+    }
+
+    // Delete conversation
+    const { error } = await supabase
+      .from('conversations')
+      .delete()
+      .eq('id', conversationId)
+      .eq('user_id', user.id);
+
+    if (error) {
+      console.error('Database error:', error);
+      return createErrorResponse('Failed to delete conversation', 500);
+    }
+
+    return createSuccessResponse({ message: 'Conversation deleted successfully' });
+
+  } catch (error) {
+    console.error('Delete conversation API error:', error);
+    return createErrorResponse('Internal server error', 500);
+  }
+}
