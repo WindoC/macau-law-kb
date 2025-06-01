@@ -11,8 +11,8 @@ interface Message {
 }
 
 /**
- * 法律諮詢頁面組件
- * 提供基於聊天的AI法律諮詢服務
+ * 法律顧問頁面組件
+ * 提供與AI法律顧問的對話功能
  */
 export default function ConsultantPage() {
   const [messages, setMessages] = useState<Message[]>([]);
@@ -28,7 +28,7 @@ export default function ConsultantPage() {
       id: Date.now().toString(),
       role: 'user',
       content: input.trim(),
-      timestamp: new Date(),
+      timestamp: new Date()
     };
 
     setMessages(prev => [...prev, userMessage]);
@@ -36,36 +36,80 @@ export default function ConsultantPage() {
     setLoading(true);
 
     try {
-      // TODO: 實現諮詢API調用
-      console.log('發送訊息:', userMessage.content);
+      // Get session token for authentication
+      const { getSessionToken } = await import('@/lib/auth');
+      const token = await getSessionToken();
       
-      // AI回應的佔位符
-      const aiMessage: Message = {
+      if (!token) {
+        throw new Error('請先登入');
+      }
+
+      const response = await fetch('/api/consultant', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({ 
+          message: input.trim(),
+          conversation_id: conversationId,
+          conversation_history: messages
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || '處理訊息失敗');
+      }
+
+      const data = await response.json();
+      
+      // Update conversation ID if this is a new conversation
+      if (data.conversation_id && !conversationId) {
+        setConversationId(data.conversation_id);
+      }
+
+      const assistantMessage: Message = {
         id: (Date.now() + 1).toString(),
         role: 'assistant',
-        content: '這是一個佔位符回應。AI法律顧問將基於澳門法律提供法律指導。',
-        timestamp: new Date(),
+        content: data.response || '',
+        timestamp: new Date()
       };
 
-      setMessages(prev => [...prev, aiMessage]);
+      setMessages(prev => [...prev, assistantMessage]);
     } catch (error) {
-      console.error('諮詢錯誤:', error);
+      console.error('顧問錯誤:', error);
+      const errorMessage: Message = {
+        id: (Date.now() + 1).toString(),
+        role: 'assistant',
+        content: `抱歉，處理您的訊息時發生錯誤：${error instanceof Error ? error.message : '未知錯誤'}`,
+        timestamp: new Date()
+      };
+      setMessages(prev => [...prev, errorMessage]);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleKeyPress = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleSubmit(e as any);
     }
   };
 
   const startNewConversation = () => {
     setMessages([]);
     setConversationId(null);
+    setInput('');
   };
 
   const copyConversation = () => {
     const content = messages.map(msg => 
-      `**${msg.role === 'user' ? '您' : 'AI法律顧問'}:** ${msg.content}`
+      `**${msg.role === 'user' ? '用戶' : 'AI顧問'}:** ${msg.content}`
     ).join('\n\n');
     navigator.clipboard.writeText(content);
-    alert('已複製對話到剪貼板');
+    alert('對話已複製到剪貼板');
   };
 
   return (
@@ -74,19 +118,19 @@ export default function ConsultantPage() {
       <div className="container mt-4">
         <div className="row">
           <div className="col-12">
-            <div className="d-flex justify-content-between align-items-center mb-4">
+            <div className="d-flex align-items-center justify-content-between mb-4">
               <div className="d-flex align-items-center">
                 <div className="bg-warning text-white rounded-circle d-inline-flex align-items-center justify-content-center me-3" style={{width: '50px', height: '50px'}}>
-                  <i className="fas fa-comments fa-lg"></i>
+                  <i className="fas fa-user-tie fa-lg"></i>
                 </div>
                 <div>
-                  <h1 className="mb-1">法律諮詢</h1>
-                  <p className="text-muted mb-0">與AI法律顧問對話，獲得澳門法律的全面指導</p>
+                  <h1 className="mb-1">法律顧問</h1>
+                  <p className="text-muted mb-0">與AI法律顧問進行深入對話，獲得專業建議</p>
                 </div>
               </div>
               <div>
                 <button 
-                  className="btn btn-outline-secondary me-2"
+                  className="btn btn-outline-warning me-2"
                   onClick={copyConversation}
                   disabled={messages.length === 0}
                 >
@@ -94,9 +138,9 @@ export default function ConsultantPage() {
                   複製對話
                 </button>
                 <button 
-                  className="btn btn-outline-warning"
+                  className="btn btn-warning"
                   onClick={startNewConversation}
-                  disabled={messages.length === 0}
+                  disabled={loading}
                 >
                   <i className="fas fa-plus me-1"></i>
                   新對話
@@ -104,83 +148,73 @@ export default function ConsultantPage() {
               </div>
             </div>
 
-            <div className="card border-warning" style={{ height: '600px' }}>
+            <div className="card" style={{height: '600px'}}>
               <div className="card-body d-flex flex-column">
-                {/* 聊天訊息 */}
-                <div className="flex-grow-1 overflow-auto mb-3" style={{ maxHeight: '500px' }}>
+                {/* 對話區域 */}
+                <div className="flex-grow-1 overflow-auto mb-3" style={{maxHeight: '450px'}}>
                   {messages.length === 0 ? (
-                    <div className="text-center text-muted mt-5">
-                      <i className="fas fa-gavel fa-3x text-warning mb-3"></i>
-                      <h5>歡迎使用法律諮詢</h5>
-                      <p>開始對話，詢問任何關於澳門法律的問題。</p>
-                      <div className="mt-4">
-                        <h6>範例問題:</h6>
-                        <div className="row">
-                          <div className="col-md-6">
-                            <ul className="list-unstyled text-start">
-                              <li className="mb-2">
-                                <i className="fas fa-building text-primary me-2"></i>
-                                "在澳門註冊公司的步驟是什麼？"
-                              </li>
-                              <li className="mb-2">
-                                <i className="fas fa-home text-success me-2"></i>
-                                "作為租客在澳門有什麼權利？"
-                              </li>
-                            </ul>
+                    <div className="text-center text-muted py-5">
+                      <i className="fas fa-comments fa-3x mb-3"></i>
+                      <h5>開始與AI法律顧問對話</h5>
+                      <p>您可以詢問任何法律相關問題，AI顧問會根據澳門法律為您提供專業建議。</p>
+                      <div className="row mt-4">
+                        <div className="col-md-4">
+                          <div className="border rounded p-3">
+                            <h6 className="text-primary">案例分析</h6>
+                            <p className="small text-muted mb-0">描述具體案例，獲得詳細分析</p>
                           </div>
-                          <div className="col-md-6">
-                            <ul className="list-unstyled text-start">
-                              <li className="mb-2">
-                                <i className="fas fa-briefcase text-warning me-2"></i>
-                                "澳門的勞動法如何運作？"
-                              </li>
-                              <li className="mb-2">
-                                <i className="fas fa-calculator text-info me-2"></i>
-                                "澳門的稅務制度是怎樣的？"
-                              </li>
-                            </ul>
+                        </div>
+                        <div className="col-md-4">
+                          <div className="border rounded p-3">
+                            <h6 className="text-success">法律程序</h6>
+                            <p className="small text-muted mb-0">了解各種法律程序和要求</p>
+                          </div>
+                        </div>
+                        <div className="col-md-4">
+                          <div className="border rounded p-3">
+                            <h6 className="text-warning">權利義務</h6>
+                            <p className="small text-muted mb-0">明確您的權利和義務</p>
                           </div>
                         </div>
                       </div>
                     </div>
                   ) : (
-                    <div>
+                    <div className="chat-messages">
                       {messages.map((message) => (
-                        <div
-                          key={message.id}
-                          className={`mb-3 d-flex ${message.role === 'user' ? 'justify-content-end' : 'justify-content-start'}`}
-                        >
-                          <div
-                            className={`p-3 rounded ${
-                              message.role === 'user'
-                                ? 'bg-warning text-dark'
-                                : 'bg-light border'
-                            }`}
-                            style={{ maxWidth: '70%' }}
-                          >
-                            <div className="d-flex align-items-start mb-2">
-                              <i className={`fas ${message.role === 'user' ? 'fa-user' : 'fa-robot'} me-2 mt-1`}></i>
-                              <strong className="small">
-                                {message.role === 'user' ? '您' : 'AI法律顧問'}
-                              </strong>
+                        <div key={message.id} className={`mb-3 d-flex ${message.role === 'user' ? 'justify-content-end' : 'justify-content-start'}`}>
+                          <div className={`card ${message.role === 'user' ? 'bg-primary text-white' : 'bg-light'}`} style={{maxWidth: '80%'}}>
+                            <div className="card-body py-2 px-3">
+                              <div className="d-flex align-items-start">
+                                <div className={`rounded-circle d-inline-flex align-items-center justify-content-center me-2 ${message.role === 'user' ? 'bg-white text-primary' : 'bg-warning text-white'}`} style={{width: '30px', height: '30px', fontSize: '12px'}}>
+                                  <i className={`fas ${message.role === 'user' ? 'fa-user' : 'fa-robot'}`}></i>
+                                </div>
+                                <div className="flex-grow-1">
+                                  <div className="small mb-1">
+                                    <strong>{message.role === 'user' ? '您' : 'AI顧問'}</strong>
+                                    <span className="ms-2 opacity-75">
+                                      {message.timestamp.toLocaleTimeString()}
+                                    </span>
+                                  </div>
+                                  <div style={{whiteSpace: 'pre-wrap'}}>{message.content}</div>
+                                </div>
+                              </div>
                             </div>
-                            <div style={{ whiteSpace: 'pre-wrap' }}>
-                              {message.content}
-                            </div>
-                            <small className={`d-block mt-2 ${message.role === 'user' ? 'text-dark' : 'text-muted'}`}>
-                              {message.timestamp.toLocaleTimeString('zh-TW')}
-                            </small>
                           </div>
                         </div>
                       ))}
-                      
                       {loading && (
                         <div className="mb-3 d-flex justify-content-start">
-                          <div className="bg-light border p-3 rounded" style={{ maxWidth: '70%' }}>
-                            <div className="d-flex align-items-center">
-                              <div className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></div>
-                              <i className="fas fa-robot me-2"></i>
-                              AI法律顧問正在思考...
+                          <div className="card bg-light" style={{maxWidth: '80%'}}>
+                            <div className="card-body py-2 px-3">
+                              <div className="d-flex align-items-center">
+                                <div className="bg-warning text-white rounded-circle d-inline-flex align-items-center justify-content-center me-2" style={{width: '30px', height: '30px', fontSize: '12px'}}>
+                                  <i className="fas fa-robot"></i>
+                                </div>
+                                <div>
+                                  <div className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></div>
+                                  AI顧問正在思考...
+                                </div>
+                              </div>
                             </div>
                           </div>
                         </div>
@@ -189,23 +223,18 @@ export default function ConsultantPage() {
                   )}
                 </div>
 
-                {/* 輸入表單 */}
+                {/* 輸入區域 */}
                 <form onSubmit={handleSubmit}>
                   <div className="input-group">
                     <textarea
                       className="form-control"
-                      placeholder="詢問您的法律問題或繼續對話..."
+                      placeholder="輸入您的法律問題... (按Enter發送，Shift+Enter換行)"
                       value={input}
                       onChange={(e) => setInput(e.target.value)}
+                      onKeyPress={handleKeyPress}
                       disabled={loading}
                       rows={2}
-                      style={{ resize: 'none' }}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter' && !e.shiftKey) {
-                          e.preventDefault();
-                          handleSubmit(e);
-                        }
-                      }}
+                      style={{resize: 'none'}}
                     />
                     <button 
                       className="btn btn-warning" 
@@ -215,42 +244,17 @@ export default function ConsultantPage() {
                       {loading ? (
                         <span className="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
                       ) : (
-                        <>
-                          <i className="fas fa-paper-plane me-1"></i>
-                          發送
-                        </>
+                        <i className="fas fa-paper-plane"></i>
                       )}
                     </button>
                   </div>
-                  <small className="text-muted">
-                    <i className="fas fa-keyboard me-1"></i>
-                    按 Enter 發送，Shift+Enter 換行
-                  </small>
                 </form>
               </div>
             </div>
 
-            <div className="mt-3">
-              <div className="alert alert-info border-info">
-                <h6 className="alert-heading">
-                  <i className="fas fa-lightbulb me-2"></i>
-                  使用提示
-                </h6>
-                <div className="row">
-                  <div className="col-md-6">
-                    <ul className="mb-0">
-                      <li>針對您的法律情況提供具體描述以獲得更好的指導</li>
-                      <li>AI會記住對話內容，您可以提出後續問題</li>
-                    </ul>
-                  </div>
-                  <div className="col-md-6">
-                    <ul className="mb-0">
-                      <li>您可以要求澄清或更詳細的解釋</li>
-                      <li>所有對話都會保存到您的歷史記錄中</li>
-                    </ul>
-                  </div>
-                </div>
-              </div>
+            <div className="alert alert-warning mt-3">
+              <i className="fas fa-exclamation-triangle me-2"></i>
+              <strong>重要提醒:</strong> AI顧問提供的建議僅供參考，不構成正式法律意見。如需專業法律服務，請諮詢合格律師。對話內容可能會被記錄用於改善服務品質。
             </div>
           </div>
         </div>

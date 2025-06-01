@@ -4,7 +4,7 @@ import { supabase } from './supabase';
 
 /**
  * Authentication utilities for API routes
- * Handles JWT verification, user authentication, and role-based access control
+ * Handles Supabase token verification, user authentication, and role-based access control
  */
 
 export interface AuthenticatedUser {
@@ -16,7 +16,7 @@ export interface AuthenticatedUser {
 }
 
 /**
- * Extract and verify JWT token from request
+ * Extract and verify Supabase token from request
  * @param request - Next.js request object
  * @returns Promise<AuthenticatedUser | null> - Authenticated user or null
  */
@@ -30,10 +30,7 @@ export async function authenticateRequest(request: NextRequest): Promise<Authent
 
     const token = authHeader.substring(7);
     
-    // Verify JWT token
-    const decoded = jwt.verify(token, process.env.JWT_SECRET!) as any;
-    
-    // Get user from Supabase
+    // Get user from Supabase using the access token
     const { data: { user }, error } = await supabase.auth.getUser(token);
     
     if (error || !user) {
@@ -47,20 +44,94 @@ export async function authenticateRequest(request: NextRequest): Promise<Authent
       .eq('id', user.id)
       .single();
 
-    if (profileError) {
+    if (profileError && profileError.code !== 'PGRST116') {
       console.error('Error fetching user profile:', profileError);
-      return null;
+      // Create default profile if it doesn't exist
+      const defaultProfile = {
+        id: user.id,
+        email: user.email,
+        name: user.user_metadata?.full_name || user.user_metadata?.name || 'Unknown User',
+        role: 'free',
+        monthly_tokens: 1000,
+        used_tokens: 0,
+        avatar_url: user.user_metadata?.avatar_url,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      };
+
+      const { data: newProfile, error: insertError } = await supabase
+        .from('user_profiles')
+        .insert(defaultProfile)
+        .select()
+        .single();
+
+      if (insertError) {
+        console.error('Error creating user profile:', insertError);
+        return {
+          id: user.id,
+          email: user.email!,
+          role: 'free',
+          monthly_tokens: 1000,
+          used_tokens: 0
+        };
+      }
+
+      return {
+        id: newProfile.id,
+        email: newProfile.email!,
+        role: newProfile.role,
+        monthly_tokens: newProfile.monthly_tokens,
+        used_tokens: newProfile.used_tokens
+      };
     }
 
     return {
       id: user.id,
       email: user.email!,
-      role: profile.role,
-      monthly_tokens: profile.monthly_tokens,
-      used_tokens: profile.used_tokens
+      role: profile?.role || 'free',
+      monthly_tokens: profile?.monthly_tokens || 1000,
+      used_tokens: profile?.used_tokens || 0
     };
   } catch (error) {
     console.error('Authentication error:', error);
+    return null;
+  }
+}
+
+/**
+ * Get current authenticated user from client-side
+ * @returns Promise<User | null> - Current user or null
+ */
+export async function getCurrentUser(): Promise<any | null> {
+  try {
+    const { data: { user }, error } = await supabase.auth.getUser();
+    
+    if (error || !user) {
+      return null;
+    }
+    
+    return user;
+  } catch (error) {
+    console.error('Error getting current user:', error);
+    return null;
+  }
+}
+
+/**
+ * Get current session token for API calls
+ * @returns Promise<string | null> - Session token or null
+ */
+export async function getSessionToken(): Promise<string | null> {
+  try {
+    const { data: { session }, error } = await supabase.auth.getSession();
+    
+    if (error || !session) {
+      return null;
+    }
+    
+    return session.access_token;
+  } catch (error) {
+    console.error('Error getting session token:', error);
     return null;
   }
 }
@@ -146,7 +217,7 @@ export function verifyCSRFToken(token: string): boolean {
  */
 export function createErrorResponse(message: string, status: number = 400): Response {
   return new Response(
-    JSON.stringify({ error: message }),
+    JSON.stringify({ success: false, error: message }),
     {
       status,
       headers: {
@@ -164,7 +235,7 @@ export function createErrorResponse(message: string, status: number = 400): Resp
  */
 export function createSuccessResponse(data: any, status: number = 200): Response {
   return new Response(
-    JSON.stringify(data),
+    JSON.stringify({ success: true, ...data }),
     {
       status,
       headers: {

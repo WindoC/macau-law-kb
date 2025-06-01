@@ -5,7 +5,7 @@ import Navigation from '@/components/Navigation';
 
 /**
  * 法律問答頁面組件
- * 允許用戶提出法律問題並獲得AI驅動的答案
+ * 允許用戶提問並獲得AI生成的法律建議
  */
 export default function QAPage() {
   const [question, setQuestion] = useState('');
@@ -22,20 +22,41 @@ export default function QAPage() {
     setSources([]);
 
     try {
-      // TODO: 實現問答API調用
-      console.log('提出問題:', question);
-      // AI回應的佔位符
-      setAnswer('');
-      setSources([]);
+      // Get session token for authentication
+      const { getSessionToken } = await import('@/lib/auth');
+      const token = await getSessionToken();
+      
+      if (!token) {
+        throw new Error('請先登入');
+      }
+
+      const response = await fetch('/api/qa', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({ question }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || '處理問題失敗');
+      }
+
+      const data = await response.json();
+      setAnswer(data.answer || '');
+      setSources(data.sources || []);
     } catch (error) {
       console.error('問答錯誤:', error);
+      alert(error instanceof Error ? error.message : '處理問題失敗，請稍後再試');
     } finally {
       setLoading(false);
     }
   };
 
-  const copyToClipboard = () => {
-    const content = `**問題:** ${question}\n\n**答案:** ${answer}\n\n**來源:** ${sources.map(s => s.title).join(', ')}`;
+  const copyQA = () => {
+    const content = `**問題:** ${question}\n\n**回答:** ${answer}\n\n**參考來源:**\n${sources.map((source, index) => `${index + 1}. ${source.title} (相關度: ${Math.round(source.similarity * 100)}%)`).join('\n')}`;
     navigator.clipboard.writeText(content);
     alert('已複製到剪貼板');
   };
@@ -52,7 +73,7 @@ export default function QAPage() {
               </div>
               <div>
                 <h1 className="mb-1">法律問答</h1>
-                <p className="text-muted mb-0">基於澳門法律文件獲得AI驅動的專業答案</p>
+                <p className="text-muted mb-0">提出您的法律問題，獲得AI驅動的專業建議</p>
               </div>
             </div>
 
@@ -60,12 +81,12 @@ export default function QAPage() {
               <div className="card-body">
                 <form onSubmit={handleSubmit}>
                   <div className="mb-3">
-                    <label htmlFor="question" className="form-label">您的法律問題</label>
+                    <label htmlFor="questionInput" className="form-label">您的法律問題</label>
                     <textarea
-                      id="question"
+                      id="questionInput"
                       className="form-control"
                       rows={4}
-                      placeholder="在此提出您的法律問題（例如：「在澳門開設企業需要什麼條件？」）"
+                      placeholder="請詳細描述您的法律問題（例如：「如果我在澳門犯了盜竊罪，可能面臨什麼刑罰？」）"
                       value={question}
                       onChange={(e) => setQuestion(e.target.value)}
                       disabled={loading}
@@ -84,7 +105,7 @@ export default function QAPage() {
                     ) : (
                       <>
                         <i className="fas fa-paper-plane me-1"></i>
-                        獲得答案
+                        提交問題
                       </>
                     )}
                   </button>
@@ -96,7 +117,7 @@ export default function QAPage() {
               <div className="alert alert-info">
                 <div className="d-flex align-items-center">
                   <div className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></div>
-                  AI正在分析您的問題並搜索相關法律文件...
+                  正在分析您的問題並生成專業回答...
                 </div>
               </div>
             )}
@@ -104,100 +125,105 @@ export default function QAPage() {
             {answer && (
               <div className="mt-4">
                 <div className="card border-success">
-                  <div className="card-header bg-success text-white d-flex justify-content-between align-items-center">
+                  <div className="card-header bg-success text-white">
                     <h5 className="mb-0">
-                      <i className="fas fa-robot me-2"></i>
-                      AI 答案
+                      <i className="fas fa-lightbulb me-2"></i>
+                      AI 法律建議
                     </h5>
-                    <button 
-                      className="btn btn-light btn-sm"
-                      onClick={copyToClipboard}
-                      title="複製問題和答案到剪貼板"
-                    >
-                      <i className="fas fa-copy me-1"></i>
-                      複製
-                    </button>
                   </div>
                   <div className="card-body">
                     <div className="mb-3">
-                      <strong className="text-success">
-                        <i className="fas fa-question me-1"></i>
-                        問題:
-                      </strong>
-                      <div className="mt-2 p-3 bg-light rounded">
-                        {question}
-                      </div>
+                      <h6 className="text-primary">您的問題:</h6>
+                      <p className="text-muted">{question}</p>
                     </div>
                     <div className="mb-3">
-                      <strong className="text-success">
-                        <i className="fas fa-lightbulb me-1"></i>
-                        答案:
-                      </strong>
-                      <div className="mt-2 p-3 border rounded" style={{ whiteSpace: 'pre-wrap' }}>
-                        {answer}
+                      <h6 className="text-success">專業回答:</h6>
+                      <div className="border-start border-success border-3 ps-3">
+                        <p className="mb-0" style={{whiteSpace: 'pre-wrap'}}>{answer}</p>
                       </div>
                     </div>
-                    
-                    {sources.length > 0 && (
-                      <div>
-                        <strong className="text-success">
-                          <i className="fas fa-book me-1"></i>
-                          參考來源:
-                        </strong>
-                        <div className="mt-2">
-                          {sources.map((source, index) => (
-                            <div key={index} className="border rounded p-3 mb-2 bg-light">
-                              <h6 className="mb-1 text-primary">{source.title}</h6>
-                              <p className="mb-1 text-muted small">{source.content}</p>
-                              <small className="text-muted">
-                                <i className="fas fa-chart-bar me-1"></i>
-                                相關度: {Math.round(source.similarity * 100)}%
-                              </small>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
+                    <div className="d-flex justify-content-between align-items-center">
+                      <small className="text-muted">
+                        <i className="fas fa-info-circle me-1"></i>
+                        此建議僅供參考，具體情況請諮詢專業律師
+                      </small>
+                      <button 
+                        className="btn btn-sm btn-outline-success"
+                        onClick={copyQA}
+                      >
+                        <i className="fas fa-copy me-1"></i>
+                        複製問答
+                      </button>
+                    </div>
                   </div>
                 </div>
-              </div>
-            )}
 
-            {!loading && !answer && question && (
-              <div className="alert alert-warning">
-                <i className="fas fa-exclamation-triangle me-2"></i>
-                未能生成答案。請嘗試重新表述您的問題或檢查網絡連接。
+                {sources.length > 0 && (
+                  <div className="mt-4">
+                    <h5 className="mb-3">
+                      <i className="fas fa-book me-2"></i>
+                      參考來源
+                    </h5>
+                    <div className="row">
+                      {sources.map((source, index) => (
+                        <div key={index} className="col-12 mb-3">
+                          <div className="card border-start border-success border-2">
+                            <div className="card-body">
+                              <div className="d-flex justify-content-between align-items-start mb-2">
+                                <h6 className="card-title text-success">{source.title}</h6>
+                                <span className="badge bg-success">
+                                  相關度: {Math.round(source.similarity * 100)}%
+                                </span>
+                              </div>
+                              <p className="card-text small">{source.content}</p>
+                              <small className="text-muted">
+                                <i className="fas fa-file-alt me-1"></i>
+                                法律文件 #{source.id}
+                              </small>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 
             {!question && (
               <div className="card bg-light">
                 <div className="card-body text-center">
-                  <i className="fas fa-comments fa-2x text-success mb-3"></i>
-                  <h5>問答提示</h5>
+                  <i className="fas fa-question-circle fa-2x text-success mb-3"></i>
+                  <h5>如何提出好的法律問題</h5>
                   <div className="row">
-                    <div className="col-md-6 mb-3">
+                    <div className="col-md-4 mb-3">
                       <div className="border rounded p-3 bg-white">
-                        <h6 className="text-success">範例問題</h6>
-                        <ul className="list-unstyled text-start small text-muted">
-                          <li>• "在澳門註冊公司的步驟是什麼？"</li>
-                          <li>• "作為租客在澳門有什麼權利？"</li>
-                          <li>• "澳門的勞動法如何運作？"</li>
-                          <li>• "澳門的稅務制度是怎樣的？"</li>
-                        </ul>
+                        <h6 className="text-primary">具體情況</h6>
+                        <p className="small text-muted mb-0">
+                          描述具體的事實和情況，避免過於籠統
+                        </p>
                       </div>
                     </div>
-                    <div className="col-md-6 mb-3">
+                    <div className="col-md-4 mb-3">
                       <div className="border rounded p-3 bg-white">
-                        <h6 className="text-primary">提問技巧</h6>
-                        <ul className="list-unstyled text-start small text-muted">
-                          <li>• 提供具體的法律情況</li>
-                          <li>• 使用清晰明確的語言</li>
-                          <li>• 包含相關的背景信息</li>
-                          <li>• 指明特定的法律領域</li>
-                        </ul>
+                        <h6 className="text-success">相關法律</h6>
+                        <p className="small text-muted mb-0">
+                          如果知道相關法律條文，可以一併提及
+                        </p>
                       </div>
                     </div>
+                    <div className="col-md-4 mb-3">
+                      <div className="border rounded p-3 bg-white">
+                        <h6 className="text-warning">背景資訊</h6>
+                        <p className="small text-muted mb-0">
+                          提供足夠的背景資訊以獲得準確建議
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="alert alert-warning mt-3">
+                    <i className="fas fa-exclamation-triangle me-2"></i>
+                    <strong>免責聲明:</strong> 此AI系統提供的建議僅供參考，不構成正式法律意見。如需專業法律服務，請諮詢合格律師。
                   </div>
                 </div>
               </div>

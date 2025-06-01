@@ -1,214 +1,149 @@
 import { NextRequest } from 'next/server';
-import { 
-  authenticateRequest, 
-  createErrorResponse, 
-  createSuccessResponse,
-  validateMethod
-} from '@/lib/auth';
-import { getUserProfile } from '@/lib/database';
+import { getCurrentUser } from '@/lib/auth';
 import { supabase } from '@/lib/supabase';
 
 /**
- * User Profile API endpoint
- * Handles user profile retrieval and updates
+ * GET /api/profile
+ * Get user profile information including credits and usage statistics
  */
 export async function GET(request: NextRequest) {
   try {
-    // Validate request method
-    if (!validateMethod(request, ['GET'])) {
-      return createErrorResponse('Method not allowed', 405);
-    }
-
-    // Authenticate user
-    const user = await authenticateRequest(request);
+    const user = await getCurrentUser();
+    
     if (!user) {
-      return createErrorResponse('Unauthorized', 401);
+      return new Response(
+        JSON.stringify({ error: '未授權訪問' }),
+        { 
+          status: 401,
+          headers: { 'Content-Type': 'application/json' }
+        }
+      );
     }
 
-    try {
-      // Get user profile from database
-      const profile = await getUserProfile(user.id);
+    // Get user profile from database
+    const { data: profile, error: profileError } = await supabase
+      .from('user_profiles')
+      .select('*')
+      .eq('id', user.id)
+      .single();
 
-      // Format response
-      const response = {
-        id: profile.id,
-        email: profile.email,
-        role: profile.role,
-        monthly_tokens: profile.monthly_tokens,
-        used_tokens: profile.used_tokens,
-        remaining_tokens: profile.monthly_tokens - profile.used_tokens,
-        created_at: profile.created_at,
-        last_login: profile.last_login,
-        subscription_status: profile.subscription_status,
-        subscription_expires: profile.subscription_expires
+    if (profileError && profileError.code !== 'PGRST116') {
+      console.error('Error fetching user profile:', profileError);
+      return new Response(
+        JSON.stringify({ error: '獲取用戶資料失敗' }),
+        { 
+          status: 500,
+          headers: { 'Content-Type': 'application/json' }
+        }
+      );
+    }
+
+    // If no profile exists, create default profile
+    if (!profile) {
+      const defaultProfile = {
+        id: user.id,
+        email: user.email,
+        name: user.user_metadata?.full_name || user.user_metadata?.name || 'Unknown User',
+        role: 'free',
+        monthly_tokens: 1000,
+        used_tokens: 0,
+        avatar_url: user.user_metadata?.avatar_url,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
       };
 
-      return createSuccessResponse(response);
-
-    } catch (dbError) {
-      console.error('Database error:', dbError);
-      return createErrorResponse('Failed to retrieve user profile', 500);
-    }
-
-  } catch (error) {
-    console.error('Profile API error:', error);
-    return createErrorResponse('Internal server error', 500);
-  }
-}
-
-/**
- * Update user profile (admin only for role changes)
- */
-export async function PUT(request: NextRequest) {
-  try {
-    // Validate request method
-    if (!validateMethod(request, ['PUT'])) {
-      return createErrorResponse('Method not allowed', 405);
-    }
-
-    // Authenticate user
-    const user = await authenticateRequest(request);
-    if (!user) {
-      return createErrorResponse('Unauthorized', 401);
-    }
-
-    // Parse request body
-    const body = await request.json();
-    const { role, monthly_tokens, used_tokens } = body;
-
-    // Only admin can update user profiles
-    if (user.role !== 'admin') {
-      return createErrorResponse('Access denied - Admin only', 403);
-    }
-
-    // Get target user ID from query parameters
-    const { searchParams } = new URL(request.url);
-    const targetUserId = searchParams.get('userId') || user.id;
-
-    try {
-      // Update user profile
-      const updateData: any = {};
-      
-      if (role && ['admin', 'free', 'pay', 'vip'].includes(role)) {
-        updateData.role = role;
-      }
-      
-      if (typeof monthly_tokens === 'number' && monthly_tokens >= 0) {
-        updateData.monthly_tokens = monthly_tokens;
-      }
-      
-      if (typeof used_tokens === 'number' && used_tokens >= 0) {
-        updateData.used_tokens = used_tokens;
-      }
-
-      if (Object.keys(updateData).length === 0) {
-        return createErrorResponse('No valid fields to update');
-      }
-
-      const { data, error } = await supabase
+      const { data: newProfile, error: insertError } = await supabase
         .from('user_profiles')
-        .update(updateData)
-        .eq('id', targetUserId)
+        .insert(defaultProfile)
         .select()
         .single();
 
-      if (error) {
-        console.error('Database error:', error);
-        return createErrorResponse('Failed to update user profile', 500);
+      if (insertError) {
+        console.error('Error creating user profile:', insertError);
+        // Return fallback data
+        return new Response(
+          JSON.stringify({
+            profile: {
+              id: user.id,
+              email: user.email || 'unknown@example.com',
+              name: user.user_metadata?.full_name || user.user_metadata?.name || 'Unknown User',
+              role: 'free',
+              avatar_url: user.user_metadata?.avatar_url,
+              created_at: user.created_at || new Date().toISOString(),
+            },
+            credits: {
+              total_tokens: 1000,
+              used_tokens: 0,
+              remaining_tokens: 1000,
+              monthly_limit: 1000,
+              reset_date: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+            }
+          }),
+          { 
+            status: 200,
+            headers: { 'Content-Type': 'application/json' }
+          }
+        );
       }
 
-      return createSuccessResponse({
-        message: 'User profile updated successfully',
-        profile: data
-      });
-
-    } catch (dbError) {
-      console.error('Database error:', dbError);
-      return createErrorResponse('Failed to update user profile', 500);
+      return new Response(
+        JSON.stringify({
+          profile: {
+            id: newProfile.id,
+            email: newProfile.email,
+            name: newProfile.name,
+            role: newProfile.role,
+            avatar_url: newProfile.avatar_url,
+            created_at: newProfile.created_at,
+          },
+          credits: {
+            total_tokens: newProfile.monthly_tokens,
+            used_tokens: newProfile.used_tokens,
+            remaining_tokens: newProfile.monthly_tokens - newProfile.used_tokens,
+            monthly_limit: newProfile.monthly_tokens,
+            reset_date: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+          }
+        }),
+        { 
+          status: 200,
+          headers: { 'Content-Type': 'application/json' }
+        }
+      );
     }
 
-  } catch (error) {
-    console.error('Profile update API error:', error);
-    return createErrorResponse('Internal server error', 500);
-  }
-}
-
-/**
- * Get user usage statistics
- */
-export async function POST(request: NextRequest) {
-  try {
-    // Validate request method
-    if (!validateMethod(request, ['POST'])) {
-      return createErrorResponse('Method not allowed', 405);
-    }
-
-    // Authenticate user
-    const user = await authenticateRequest(request);
-    if (!user) {
-      return createErrorResponse('Unauthorized', 401);
-    }
-
-    // Parse request body
-    const body = await request.json();
-    const { action } = body;
-
-    if (action !== 'get_usage_stats') {
-      return createErrorResponse('Invalid action');
-    }
-
-    try {
-      // Get usage statistics from the last 30 days
-      const thirtyDaysAgo = new Date();
-      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-
-      const { data: usageStats, error } = await supabase
-        .from('api_usage_logs')
-        .select('action, tokens_used, created_at')
-        .eq('user_id', user.id)
-        .gte('created_at', thirtyDaysAgo.toISOString())
-        .order('created_at', { ascending: false });
-
-      if (error) {
-        console.error('Database error:', error);
-        return createErrorResponse('Failed to fetch usage statistics', 500);
+    // Return existing profile
+    return new Response(
+      JSON.stringify({
+        profile: {
+          id: profile.id,
+          email: profile.email,
+          name: profile.name,
+          role: profile.role,
+          avatar_url: profile.avatar_url,
+          created_at: profile.created_at,
+        },
+        credits: {
+          total_tokens: profile.monthly_tokens,
+          used_tokens: profile.used_tokens,
+          remaining_tokens: profile.monthly_tokens - profile.used_tokens,
+          monthly_limit: profile.monthly_tokens,
+          reset_date: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+        }
+      }),
+      { 
+        status: 200,
+        headers: { 'Content-Type': 'application/json' }
       }
-
-      // Calculate statistics
-      const stats = {
-        total_tokens_used: usageStats?.reduce((sum, log) => sum + log.tokens_used, 0) || 0,
-        search_count: usageStats?.filter(log => log.action === 'search').length || 0,
-        qa_count: usageStats?.filter(log => log.action === 'qa').length || 0,
-        consultant_count: usageStats?.filter(log => log.action === 'consultant').length || 0,
-        daily_usage: {} as Record<string, { tokens: number; requests: number }>
-      };
-
-      // Group by day
-      usageStats?.forEach(log => {
-        const date = new Date(log.created_at).toISOString().split('T')[0];
-        if (!stats.daily_usage[date]) {
-          stats.daily_usage[date] = { tokens: 0, requests: 0 };
-        }
-        stats.daily_usage[date].tokens += log.tokens_used;
-        stats.daily_usage[date].requests += 1;
-      });
-
-      return createSuccessResponse({
-        usage_stats: stats,
-        current_period: {
-          monthly_tokens: user.monthly_tokens,
-          used_tokens: user.used_tokens,
-          remaining_tokens: user.monthly_tokens - user.used_tokens
-        }
-      });
-
-    } catch (dbError) {
-      console.error('Database error:', dbError);
-      return createErrorResponse('Failed to fetch usage statistics', 500);
-    }
+    );
 
   } catch (error) {
-    console.error('Usage stats API error:', error);
-    return createErrorResponse('Internal server error', 500);
+    console.error('Profile API error:', error);
+    return new Response(
+      JSON.stringify({ error: '服務器錯誤' }),
+      { 
+        status: 500,
+        headers: { 'Content-Type': 'application/json' }
+      }
+    );
   }
 }

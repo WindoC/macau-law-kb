@@ -1,7 +1,9 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import Navigation from '@/components/Navigation';
+import { getCurrentUser } from '@/lib/auth';
 
 interface UserProfile {
   id: string;
@@ -28,6 +30,7 @@ export default function ProfilePage() {
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [credits, setCredits] = useState<UserCredits | null>(null);
   const [loading, setLoading] = useState(true);
+  const router = useRouter();
 
   useEffect(() => {
     loadUserData();
@@ -35,29 +38,64 @@ export default function ProfilePage() {
 
   const loadUserData = async () => {
     try {
-      // TODO: 實現API調用以獲取用戶資料和積分
-      console.log('載入用戶資料...');
+      const user = await getCurrentUser();
       
-      // 佔位符資料
-      setProfile({
-        id: '1',
-        email: 'user@example.com',
-        name: '示範用戶',
-        role: 'free',
-        created_at: new Date().toISOString(),
+      if (!user) {
+        router.push('/');
+        return;
+      }
+
+      // Load user profile
+      const profileResponse = await fetch('/api/profile', {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
       });
 
-      setCredits({
-        total_tokens: 1000,
-        used_tokens: 250,
-        remaining_tokens: 750,
-        monthly_limit: 1000,
-        reset_date: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
-      });
+      if (profileResponse.ok) {
+        const profileData = await profileResponse.json();
+        setProfile(profileData.profile);
+        setCredits(profileData.credits);
+      } else {
+        // Fallback to user data from auth
+        setProfile({
+          id: user.id,
+          email: user.email || 'unknown@example.com',
+          name: user.user_metadata?.full_name || user.user_metadata?.name || 'Unknown User',
+          role: 'free', // Default role
+          avatar_url: user.user_metadata?.avatar_url,
+          created_at: user.created_at || new Date().toISOString(),
+        });
+
+        // Default credits for new users
+        setCredits({
+          total_tokens: 1000,
+          used_tokens: 0,
+          remaining_tokens: 1000,
+          monthly_limit: 1000,
+          reset_date: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+        });
+      }
     } catch (error) {
       console.error('載入用戶資料錯誤:', error);
+      router.push('/');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleLogout = async () => {
+    try {
+      const response = await fetch('/api/auth/logout', {
+        method: 'POST',
+      });
+      
+      if (response.ok) {
+        router.push('/');
+      }
+    } catch (error) {
+      console.error('登出錯誤:', error);
     }
   };
 
@@ -164,7 +202,7 @@ export default function ProfilePage() {
                     <div className="col-md-4 text-center">
                       <div className="mb-3">
                         <img
-                          src={profile.avatar_url || '/default-avatar.png'}
+                          src={profile.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(profile.name)}&background=0d6efd&color=fff&size=120`}
                           alt="個人頭像"
                           className="rounded-circle border"
                           width="120"
@@ -324,7 +362,10 @@ export default function ProfilePage() {
                       <i className="fas fa-download me-1"></i>
                       下載資料
                     </button>
-                    <button className="btn btn-outline-danger w-100 mb-2">
+                    <button 
+                      className="btn btn-outline-danger w-100 mb-2"
+                      onClick={handleLogout}
+                    >
                       <i className="fas fa-sign-out-alt me-1"></i>
                       登出
                     </button>

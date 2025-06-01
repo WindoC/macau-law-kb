@@ -18,12 +18,33 @@ export default function SearchPage() {
 
     setLoading(true);
     try {
-      // TODO: 實現搜索API調用
-      console.log('搜索內容:', query);
-      // 搜索結果的佔位符
-      setResults([]);
+      // Get session token for authentication
+      const { getSessionToken } = await import('@/lib/auth');
+      const token = await getSessionToken();
+      
+      if (!token) {
+        throw new Error('請先登入');
+      }
+
+      const response = await fetch('/api/search', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({ query }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || '搜索失敗');
+      }
+
+      const data = await response.json();
+      setResults(data.results || []);
     } catch (error) {
       console.error('搜索錯誤:', error);
+      alert(error instanceof Error ? error.message : '搜索失敗，請稍後再試');
     } finally {
       setLoading(false);
     }
