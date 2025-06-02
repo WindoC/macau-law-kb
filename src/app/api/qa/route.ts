@@ -20,19 +20,19 @@ export async function POST(request: NextRequest) {
   try {
     // Validate request method
     if (!validateMethod(request, ['POST'])) {
-      return createErrorResponse('Method not allowed', 405);
+      return createErrorResponse('不允許使用此方法', 405);
     }
 
     // Authenticate user
     const authResult = await authenticateRequest(request);
     if (!authResult.success || !authResult.user) {
-      return createErrorResponse(authResult.error || 'Unauthorized', 401);
+      return createErrorResponse(authResult.error || '未經授權', 401);
     }
     const user = authResult.user;
 
     // Check feature access
     if (!hasFeatureAccess(user, 'qa')) {
-      return createErrorResponse('Access denied', 403);
+      return createErrorResponse('存取遭拒', 403);
     }
 
     // Parse request body
@@ -40,11 +40,11 @@ export async function POST(request: NextRequest) {
     const { question } = body;
 
     if (!question || typeof question !== 'string' || question.trim().length === 0) {
-      return createErrorResponse('Question is required');
+      return createErrorResponse('問題是必需的');
     }
 
     if (question.length > 2000) {
-      return createErrorResponse('Question too long (max 2000 characters)');
+      return createErrorResponse('問題太長 (最多 2000 個字元)');
     }
 
     // Estimate token usage
@@ -52,7 +52,7 @@ export async function POST(request: NextRequest) {
 
     // Check token availability
     if (!hasTokens(user, estimatedTokens)) {
-      return createErrorResponse('Insufficient tokens', 402);
+      return createErrorResponse('代幣不足', 402);
     }
 
     try {
@@ -60,10 +60,10 @@ export async function POST(request: NextRequest) {
       const questionEmbedding = await generateEmbedding(question);
       
       // Step 2: Search for relevant documents
-      const searchResults = await searchDocuments(questionEmbedding, 5);
+      const searchResults = await searchDocuments(questionEmbedding, 20);
       
       if (searchResults.length === 0) {
-        return createErrorResponse('No relevant legal documents found for your question');
+        return createErrorResponse('找不到與您的問題相關的法律文件');
       }
 
       // Step 3: Generate AI answer based on search results
@@ -91,8 +91,9 @@ export async function POST(request: NextRequest) {
           id: result.id,
           content: result.content.substring(0, 500) + (result.content.length > 500 ? '...' : ''),
           metadata: result.metadata,
+          // link: result.metadata?.link || `#`,
           similarity: result.similarity,
-          title: result.metadata?.title || `文件 #${result.id}`
+          // title: result.metadata?.law_id + " - " + result.metadata?.title || `文件 #${result.id}`
         })),
         tokens_used: actualTokens,
         remaining_tokens: (user.remaining_tokens || 0) - actualTokens
@@ -102,12 +103,12 @@ export async function POST(request: NextRequest) {
 
     } catch (aiError) {
       console.error('AI processing error:', aiError);
-      return createErrorResponse('AI processing failed', 500);
+      return createErrorResponse('AI 處理失敗', 500);
     }
 
   } catch (error) {
     console.error('Q&A API error:', error);
-    return createErrorResponse('Internal server error', 500);
+    return createErrorResponse('內部伺服器錯誤', 500);
   }
 }
 
@@ -119,7 +120,7 @@ export async function GET(request: NextRequest) {
     // Authenticate user
     const authResult = await authenticateRequest(request);
     if (!authResult.success || !authResult.user) {
-      return createErrorResponse(authResult.error || 'Unauthorized', 401);
+      return createErrorResponse(authResult.error || '未經授權', 401);
     }
     const user = authResult.user;
 
@@ -138,7 +139,7 @@ export async function GET(request: NextRequest) {
 
     if (error) {
       console.error('Database error:', error);
-      return createErrorResponse('Failed to fetch Q&A history', 500);
+      return createErrorResponse('無法獲取問答歷史', 500);
     }
 
     return createSuccessResponse({
@@ -148,6 +149,6 @@ export async function GET(request: NextRequest) {
 
   } catch (error) {
     console.error('Q&A history API error:', error);
-    return createErrorResponse('Internal server error', 500);
+    return createErrorResponse('內部伺服器錯誤', 500);
   }
 }
