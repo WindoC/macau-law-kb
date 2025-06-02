@@ -20,19 +20,19 @@ export async function POST(request: NextRequest) {
   try {
     // Validate request method
     if (!validateMethod(request, ['POST'])) {
-      return createErrorResponse('Method not allowed', 405);
+      return createErrorResponse('不允許使用此方法', 405);
     }
 
     // Authenticate user
     const authResult = await authenticateRequest(request);
     if (!authResult.success || !authResult.user) {
-      return createErrorResponse(authResult.error || 'Unauthorized', 401);
+      return createErrorResponse(authResult.error || '未經授權', 401);
     }
     const user = authResult.user;
 
     // Check feature access
     if (!hasFeatureAccess(user, 'search')) {
-      return createErrorResponse('Access denied', 403);
+      return createErrorResponse('存取遭拒', 403);
     }
 
     // Parse request body
@@ -40,11 +40,11 @@ export async function POST(request: NextRequest) {
     const { query } = body;
 
     if (!query || typeof query !== 'string' || query.trim().length === 0) {
-      return createErrorResponse('Query is required');
+      return createErrorResponse('查詢是必需的');
     }
 
     if (query.length > 1000) {
-      return createErrorResponse('Query too long (max 1000 characters)');
+      return createErrorResponse('查詢太長 (最多 1000 個字元)');
     }
 
     // Estimate token usage
@@ -52,7 +52,7 @@ export async function POST(request: NextRequest) {
 
     // Check token availability
     if (!hasTokens(user, estimatedTokens)) {
-      return createErrorResponse('Insufficient tokens', 402);
+      return createErrorResponse('代幣不足', 402);
     }
 
     try {
@@ -63,7 +63,7 @@ export async function POST(request: NextRequest) {
       const queryEmbedding = await generateEmbedding(query);
       
       // Step 3: Search documents using vector similarity
-      const searchResults = await searchDocuments(queryEmbedding, 10);
+      const searchResults = await searchDocuments(queryEmbedding, 5);
       
       // Step 4: Calculate actual token usage
       const actualTokens = countTokens(query) + countTokens(keywords.join(' ')) + 30;
@@ -86,8 +86,9 @@ export async function POST(request: NextRequest) {
           id: result.id,
           content: result.content,
           metadata: result.metadata,
+          // link: result.metadata?.link || `#`,
           similarity: result.similarity,
-          title: result.metadata?.title || `文件 #${result.id}`
+          // title: result.metadata?.law_id + " - " + result.metadata?.title || `文件 #${result.id}`
         })),
         tokens_used: actualTokens,
         remaining_tokens: (user.remaining_tokens || 0) - actualTokens
@@ -97,12 +98,12 @@ export async function POST(request: NextRequest) {
 
     } catch (aiError) {
       console.error('AI processing error:', aiError);
-      return createErrorResponse('AI processing failed', 500);
+      return createErrorResponse('AI 處理失敗', 500);
     }
 
   } catch (error) {
     console.error('Search API error:', error);
-    return createErrorResponse('Internal server error', 500);
+    return createErrorResponse('內部伺服器錯誤', 500);
   }
 }
 
@@ -114,7 +115,7 @@ export async function GET(request: NextRequest) {
     // Authenticate user
     const authResult = await authenticateRequest(request);
     if (!authResult.success || !authResult.user) {
-      return createErrorResponse(authResult.error || 'Unauthorized', 401);
+      return createErrorResponse(authResult.error || '未經授權', 401);
     }
     const user = authResult.user;
 
@@ -133,7 +134,7 @@ export async function GET(request: NextRequest) {
 
     if (error) {
       console.error('Database error:', error);
-      return createErrorResponse('Failed to fetch search history', 500);
+      return createErrorResponse('無法獲取搜尋歷史', 500);
     }
 
     return createSuccessResponse({
@@ -143,6 +144,6 @@ export async function GET(request: NextRequest) {
 
   } catch (error) {
     console.error('Search history API error:', error);
-    return createErrorResponse('Internal server error', 500);
+    return createErrorResponse('內部伺服器錯誤', 500);
   }
 }

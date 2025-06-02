@@ -21,19 +21,19 @@ export async function POST(request: NextRequest) {
   try {
     // Validate request method
     if (!validateMethod(request, ['POST'])) {
-      return createErrorResponse('Method not allowed', 405);
+      return createErrorResponse('不允許使用此方法', 405);
     }
 
     // Authenticate user
     const authResult = await authenticateRequest(request);
     if (!authResult.success || !authResult.user) {
-      return createErrorResponse(authResult.error || 'Unauthorized', 401);
+      return createErrorResponse(authResult.error || '未經授權', 401);
     }
     const user = authResult.user;
 
     // Check feature access
     if (!hasFeatureAccess(user, 'consultant')) {
-      return createErrorResponse('Access denied - Consultant feature requires paid subscription', 403);
+      return createErrorResponse('存取遭拒 - 顧問功能需要付費訂閱', 403);
     }
 
     // Parse request body
@@ -41,16 +41,16 @@ export async function POST(request: NextRequest) {
     const { message, conversationId, useProModel = false } = body;
 
     if (!message || typeof message !== 'string' || message.trim().length === 0) {
-      return createErrorResponse('Message is required');
+      return createErrorResponse('訊息是必需的');
     }
 
     if (message.length > 3000) {
-      return createErrorResponse('Message too long (max 3000 characters)');
+      return createErrorResponse('訊息太長 (最多 3000 個字元)');
     }
 
     // Check if user can use Pro model
     if (useProModel && !canUseProModel(user)) {
-      return createErrorResponse('Pro model access requires VIP subscription', 403);
+      return createErrorResponse('Pro 模型存取需要 VIP 訂閱', 403);
     }
 
     // Estimate token usage (Pro model costs 10x more)
@@ -59,7 +59,7 @@ export async function POST(request: NextRequest) {
 
     // Check token availability
     if (!hasTokens(user, estimatedTokens)) {
-      return createErrorResponse('Insufficient tokens', 402);
+      return createErrorResponse('代幣不足', 402);
     }
 
     try {
@@ -126,12 +126,12 @@ export async function POST(request: NextRequest) {
 
     } catch (aiError) {
       console.error('AI processing error:', aiError);
-      return createErrorResponse('AI processing failed', 500);
+      return createErrorResponse('AI 處理失敗', 500);
     }
 
   } catch (error) {
     console.error('Consultant API error:', error);
-    return createErrorResponse('Internal server error', 500);
+    return createErrorResponse('內部伺服器錯誤', 500);
   }
 }
 
@@ -143,13 +143,13 @@ export async function GET(request: NextRequest) {
     // Authenticate user
     const authResult = await authenticateRequest(request);
     if (!authResult.success || !authResult.user) {
-      return createErrorResponse(authResult.error || 'Unauthorized', 401);
+      return createErrorResponse(authResult.error || '未經授權', 401);
     }
     const user = authResult.user;
 
     // Check feature access
     if (!hasFeatureAccess(user, 'consultant')) {
-      return createErrorResponse('Access denied', 403);
+      return createErrorResponse('存取遭拒', 403);
     }
 
     // Get query parameters
@@ -162,7 +162,7 @@ export async function GET(request: NextRequest) {
       // Get specific conversation
       const conversation = await getConversation(conversationId, user.id);
       if (!conversation) {
-        return createErrorResponse('Conversation not found', 404);
+        return createErrorResponse('找不到對話', 404);
       }
       return createSuccessResponse({ conversation });
     } else {
@@ -176,7 +176,7 @@ export async function GET(request: NextRequest) {
 
       if (error) {
         console.error('Database error:', error);
-        return createErrorResponse('Failed to fetch conversations', 500);
+        return createErrorResponse('無法獲取對話', 500);
       }
 
       return createSuccessResponse({
@@ -187,7 +187,7 @@ export async function GET(request: NextRequest) {
 
   } catch (error) {
     console.error('Consultant history API error:', error);
-    return createErrorResponse('Internal server error', 500);
+    return createErrorResponse('內部伺服器錯誤', 500);
   }
 }
 
@@ -199,13 +199,13 @@ export async function DELETE(request: NextRequest) {
     // Authenticate user
     const authResult = await authenticateRequest(request);
     if (!authResult.success || !authResult.user) {
-      return createErrorResponse(authResult.error || 'Unauthorized', 401);
+      return createErrorResponse(authResult.error || '未經授權', 401);
     }
     const user = authResult.user;
 
     // Check feature access
     if (!hasFeatureAccess(user, 'consultant')) {
-      return createErrorResponse('Access denied', 403);
+      return createErrorResponse('存取遭拒', 403);
     }
 
     // Get conversation ID from query parameters
@@ -213,7 +213,7 @@ export async function DELETE(request: NextRequest) {
     const conversationId = searchParams.get('conversationId');
 
     if (!conversationId) {
-      return createErrorResponse('Conversation ID is required');
+      return createErrorResponse('需要對話 ID');
     }
 
     // Delete conversation
@@ -225,13 +225,13 @@ export async function DELETE(request: NextRequest) {
 
     if (error) {
       console.error('Database error:', error);
-      return createErrorResponse('Failed to delete conversation', 500);
+      return createErrorResponse('無法刪除對話', 500);
     }
 
-    return createSuccessResponse({ message: 'Conversation deleted successfully' });
+    return createSuccessResponse({ message: '成功刪除對話' });
 
   } catch (error) {
     console.error('Delete conversation API error:', error);
-    return createErrorResponse('Internal server error', 500);
+    return createErrorResponse('內部伺服器錯誤', 500);
   }
 }
