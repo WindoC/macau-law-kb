@@ -1,6 +1,8 @@
 'use client';
 
 import { useState } from 'react';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import Navigation from '@/components/Navigation';
 
 /**
@@ -66,7 +68,7 @@ export default function QAPage() {
   };
 
   const copyQA = () => {
-    const content = `**問題:** ${question}\n\n**回答:** ${answer}\n\n**參考來源:**\n${sources.map((source, index) => `${index + 1}. ${source.title} (相關度: ${Math.round(source.similarity * 100)}%)`).join('\n')}`;
+    const content = `**問題:** ${question}\n\n**回答:** ${answer}\n\n**參考來源:**\n${sources.map((source, index) => `${index + 1}. ${source.metadata.law_id} - ${source.metadata.title} (第 ${source.metadata.loc.lines.from} 至 ${source.metadata.loc.lines.to} 行) (相關度: ${Math.round(source.similarity * 100)}%)`).join('\n')}`;
     navigator.clipboard.writeText(content);
     setWarning('已複製到剪貼板');
     setTimeout(() => setWarning(null), 3000);
@@ -161,12 +163,20 @@ export default function QAPage() {
                   <div className="card-body">
                     <div className="mb-3">
                       <h6 className="text-primary">您的問題:</h6>
-                      <p className="text-muted">{question}</p>
+                      <div className="text-muted">
+                        <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                          {question}
+                        </ReactMarkdown>
+                      </div>
                     </div>
                     <div className="mb-3">
                       <h6 className="text-success">專業回答:</h6>
                       <div className="border-start border-success border-3 ps-3">
-                        <p className="mb-0" style={{whiteSpace: 'pre-wrap'}}>{answer}</p>
+                        <div className="mb-0">
+                          <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                            {answer}
+                          </ReactMarkdown>
+                        </div>
                       </div>
                     </div>
                     <div className="d-flex justify-content-between align-items-center">
@@ -197,15 +207,27 @@ export default function QAPage() {
                           <div className="card border-start border-success border-2">
                             <div className="card-body">
                               <div className="d-flex justify-content-between align-items-start mb-2">
-                                <h6 className="card-title text-success">{source.title}</h6>
-                                <span className="badge bg-success">
+                                <span className="badge bg-success text-white">
+                                  第 {source.metadata.loc.lines.from} 至 {source.metadata.loc.lines.to} 行
+                                </span>
+                                <span className="badge bg-warning text-white">
+                                  <a target="_blank" rel="noopener noreferrer" href={source.metadata.link}>印務局文件</a>
+                                </span>
+                                <span className="badge bg-primary">
                                   相關度: {Math.round(source.similarity * 100)}%
                                 </span>
                               </div>
-                              <p className="card-text small">{source.content}</p>
+                              <div className="d-flex justify-content-between align-items-start mb-2">
+                                <h6 className="card-title text-success">{source.metadata.law_id} - {source.metadata.title}</h6>
+                              </div>
+                              <div className="card-text small">
+                                <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                                  {source.content}
+                                </ReactMarkdown>
+                              </div>
                               <small className="text-muted">
                                 <i className="fas fa-file-alt me-1"></i>
-                                法律文件 #{source.id}
+                                #{source.id}
                               </small>
                             </div>
                           </div>
