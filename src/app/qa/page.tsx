@@ -12,6 +12,8 @@ export default function QAPage() {
   const [answer, setAnswer] = useState('');
   const [sources, setSources] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [warning, setWarning] = useState<string | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -20,6 +22,8 @@ export default function QAPage() {
     setLoading(true);
     setAnswer('');
     setSources([]);
+    setError(null);
+    setWarning(null);
 
     try {
       // Get session token for authentication
@@ -27,7 +31,8 @@ export default function QAPage() {
       const token = await getSessionToken();
       
       if (!token) {
-        throw new Error('請先登入');
+        setError('請先登入');
+        return;
       }
 
       const response = await fetch('/api/qa', {
@@ -41,15 +46,20 @@ export default function QAPage() {
 
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.error || '處理問題失敗');
+        setError(errorData.error || '處理問題失敗');
+        return;
       }
 
       const data = await response.json();
       setAnswer(data.answer || '');
       setSources(data.sources || []);
+      
+      if (!data.answer) {
+        setWarning('無法為您的問題生成回答，請嘗試重新表述您的問題。');
+      }
     } catch (error) {
       console.error('問答錯誤:', error);
-      alert(error instanceof Error ? error.message : '處理問題失敗，請稍後再試');
+      setError(error instanceof Error ? error.message : '處理問題失敗，請稍後再試');
     } finally {
       setLoading(false);
     }
@@ -58,7 +68,8 @@ export default function QAPage() {
   const copyQA = () => {
     const content = `**問題:** ${question}\n\n**回答:** ${answer}\n\n**參考來源:**\n${sources.map((source, index) => `${index + 1}. ${source.title} (相關度: ${Math.round(source.similarity * 100)}%)`).join('\n')}`;
     navigator.clipboard.writeText(content);
-    alert('已複製到剪貼板');
+    setWarning('已複製到剪貼板');
+    setTimeout(() => setWarning(null), 3000);
   };
 
   return (
@@ -76,6 +87,22 @@ export default function QAPage() {
                 <p className="text-muted mb-0">提出您的法律問題，獲得AI驅動的專業建議</p>
               </div>
             </div>
+
+            {/* Error Alert */}
+            {error && (
+              <div className="alert alert-danger">
+                <i className="fas fa-exclamation-circle me-2"></i>
+                {error}
+              </div>
+            )}
+
+            {/* Warning Alert */}
+            {warning && (
+              <div className="alert alert-warning">
+                <i className="fas fa-exclamation-triangle me-2"></i>
+                {warning}
+              </div>
+            )}
 
             <div className="card mb-4">
               <div className="card-body">

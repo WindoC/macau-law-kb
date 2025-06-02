@@ -19,6 +19,8 @@ export default function ConsultantPage() {
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [conversationId, setConversationId] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [warning, setWarning] = useState<string | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -34,6 +36,8 @@ export default function ConsultantPage() {
     setMessages(prev => [...prev, userMessage]);
     setInput('');
     setLoading(true);
+    setError(null);
+    setWarning(null);
 
     try {
       // Get session token for authentication
@@ -41,7 +45,8 @@ export default function ConsultantPage() {
       const token = await getSessionToken();
       
       if (!token) {
-        throw new Error('請先登入');
+        setError('請先登入');
+        return;
       }
 
       const response = await fetch('/api/consultant', {
@@ -59,7 +64,8 @@ export default function ConsultantPage() {
 
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.error || '處理訊息失敗');
+        setError(errorData.error || '處理訊息失敗');
+        return;
       }
 
       const data = await response.json();
@@ -77,15 +83,13 @@ export default function ConsultantPage() {
       };
 
       setMessages(prev => [...prev, assistantMessage]);
+      
+      if (!data.response) {
+        setWarning('AI顧問無法生成回應，請嘗試重新表述您的問題。');
+      }
     } catch (error) {
       console.error('顧問錯誤:', error);
-      const errorMessage: Message = {
-        id: (Date.now() + 1).toString(),
-        role: 'assistant',
-        content: `抱歉，處理您的訊息時發生錯誤：${error instanceof Error ? error.message : '未知錯誤'}`,
-        timestamp: new Date()
-      };
-      setMessages(prev => [...prev, errorMessage]);
+      setError(error instanceof Error ? error.message : '處理訊息失敗，請稍後再試');
     } finally {
       setLoading(false);
     }
@@ -102,6 +106,8 @@ export default function ConsultantPage() {
     setMessages([]);
     setConversationId(null);
     setInput('');
+    setError(null);
+    setWarning(null);
   };
 
   const copyConversation = () => {
@@ -109,7 +115,8 @@ export default function ConsultantPage() {
       `**${msg.role === 'user' ? '用戶' : 'AI顧問'}:** ${msg.content}`
     ).join('\n\n');
     navigator.clipboard.writeText(content);
-    alert('對話已複製到剪貼板');
+    setWarning('對話已複製到剪貼板');
+    setTimeout(() => setWarning(null), 3000);
   };
 
   return (
@@ -147,6 +154,22 @@ export default function ConsultantPage() {
                 </button>
               </div>
             </div>
+
+            {/* Error Alert */}
+            {error && (
+              <div className="alert alert-danger">
+                <i className="fas fa-exclamation-circle me-2"></i>
+                {error}
+              </div>
+            )}
+
+            {/* Warning Alert */}
+            {warning && (
+              <div className="alert alert-warning">
+                <i className="fas fa-exclamation-triangle me-2"></i>
+                {warning}
+              </div>
+            )}
 
             <div className="card" style={{height: '600px'}}>
               <div className="card-body d-flex flex-column">

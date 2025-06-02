@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Navigation from '@/components/Navigation';
-import { getCurrentUser } from '@/lib/auth';
+import { getCurrentUser, getSessionToken } from '@/lib/auth';
 
 interface UserProfile {
   id: string;
@@ -45,18 +45,40 @@ export default function ProfilePage() {
         return;
       }
 
+      // Get session token for API request
+      const token = getSessionToken();
+      if (!token) {
+        throw new Error('No session token found');
+      }
+
       // Load user profile
       const profileResponse = await fetch('/api/profile', {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
         },
       });
 
       if (profileResponse.ok) {
         const profileData = await profileResponse.json();
-        setProfile(profileData.profile);
-        setCredits(profileData.credits);
+        if (profileData.success && profileData.user) {
+          setProfile({
+            id: profileData.user.id,
+            email: profileData.user.email,
+            name: profileData.user.name || 'Unknown User',
+            role: profileData.user.role,
+            avatar_url: profileData.user.avatar_url,
+            created_at: profileData.user.created_at,
+          });
+          setCredits({
+            total_tokens: profileData.user.total_tokens || 1000,
+            used_tokens: profileData.user.used_tokens || 0,
+            remaining_tokens: profileData.user.remaining_tokens || 1000,
+            monthly_limit: profileData.user.total_tokens || 1000,
+            reset_date: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+          });
+        }
       } else {
         // Fallback to user data from auth
         setProfile({

@@ -11,19 +11,25 @@ export default function SearchPage() {
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [warning, setWarning] = useState<string | null>(null);
 
   const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!query.trim()) return;
 
     setLoading(true);
+    setError(null);
+    setWarning(null);
+    
     try {
       // Get session token for authentication
       const { getSessionToken } = await import('@/lib/auth');
       const token = await getSessionToken();
       
       if (!token) {
-        throw new Error('請先登入');
+        setError('請先登入');
+        return;
       }
 
       const response = await fetch('/api/search', {
@@ -37,14 +43,20 @@ export default function SearchPage() {
 
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.error || '搜索失敗');
+        setError(errorData.error || '搜索失敗');
+        return;
       }
 
       const data = await response.json();
-      setResults(data.results || []);
+      const searchResults = data.results || [];
+      setResults(searchResults);
+      
+      if (searchResults.length === 0) {
+        setWarning('未找到與您查詢相關的結果。請嘗試重新表述您的搜索或使用不同的關鍵詞。');
+      }
     } catch (error) {
       console.error('搜索錯誤:', error);
-      alert(error instanceof Error ? error.message : '搜索失敗，請稍後再試');
+      setError(error instanceof Error ? error.message : '搜索失敗，請稍後再試');
     } finally {
       setLoading(false);
     }
@@ -53,7 +65,8 @@ export default function SearchPage() {
   const copyResult = (result: any) => {
     const content = `**搜索結果**\n\n**標題:** ${result.title}\n\n**內容:** ${result.content}\n\n**相關度:** ${Math.round(result.similarity * 100)}%`;
     navigator.clipboard.writeText(content);
-    alert('已複製到剪貼板');
+    setWarning('已複製到剪貼板');
+    setTimeout(() => setWarning(null), 3000);
   };
 
   return (
@@ -71,6 +84,22 @@ export default function SearchPage() {
                 <p className="text-muted mb-0">使用AI驅動的搜索功能快速找到相關法律文件</p>
               </div>
             </div>
+
+            {/* Error Alert */}
+            {error && (
+              <div className="alert alert-danger">
+                <i className="fas fa-exclamation-circle me-2"></i>
+                {error}
+              </div>
+            )}
+
+            {/* Warning Alert */}
+            {warning && (
+              <div className="alert alert-warning">
+                <i className="fas fa-exclamation-triangle me-2"></i>
+                {warning}
+              </div>
+            )}
 
             <div className="card mb-4">
               <div className="card-body">
@@ -155,13 +184,6 @@ export default function SearchPage() {
                     </div>
                   ))}
                 </div>
-              </div>
-            )}
-
-            {!loading && results.length === 0 && query && (
-              <div className="alert alert-warning">
-                <i className="fas fa-exclamation-triangle me-2"></i>
-                未找到與您查詢相關的結果。請嘗試重新表述您的搜索或使用不同的關鍵詞。
               </div>
             )}
 

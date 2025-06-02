@@ -1,4 +1,5 @@
 import { supabase } from './supabase';
+import { supabaseServer } from './supabase-server';
 
 /**
  * Database service for legal document operations
@@ -51,7 +52,7 @@ export async function searchDocuments(
   filter: Record<string, any> = {}
 ): Promise<DocumentResult[]> {
   try {
-    const { data, error } = await supabase.rpc('match_documents', {
+    const { data, error } = await supabaseServer.rpc('match_documents', {
       query_embedding: embedding,
       match_count: matchCount,
       filter: filter
@@ -82,7 +83,7 @@ export async function saveSearchHistory(
   documentIds: number[]
 ): Promise<string> {
   try {
-    const { data, error } = await supabase
+    const { data, error } = await supabaseServer
       .from('search_history')
       .insert({
         user_id: userId,
@@ -120,7 +121,7 @@ export async function saveQAHistory(
   documentIds: number[]
 ): Promise<string> {
   try {
-    const { data, error } = await supabase
+    const { data, error } = await supabaseServer
       .from('qa_history')
       .insert({
         user_id: userId,
@@ -163,10 +164,9 @@ export async function saveConversation(
     
     if (conversationId) {
       // Update existing conversation
-      const { data, error } = await supabase
-        .from('conversations')
+      const { data, error } = await supabaseServer
+        .from('consultant_conversations')
         .update({
-          messages: messages,
           updated_at: now
         })
         .eq('id', conversationId)
@@ -184,12 +184,11 @@ export async function saveConversation(
       // Create new conversation
       const conversationTitle = title || `對話 ${new Date().toLocaleDateString('zh-TW')}`;
       
-      const { data, error } = await supabase
-        .from('conversations')
+      const { data, error } = await supabaseServer
+        .from('consultant_conversations')
         .insert({
           user_id: userId,
           title: conversationTitle,
-          messages: messages,
           created_at: now,
           updated_at: now
         })
@@ -221,7 +220,7 @@ export async function getUserConversations(
 ): Promise<ConversationHistory[]> {
   try {
     const { data, error } = await supabase
-      .from('conversations')
+      .from('consultant_conversations')
       .select('*')
       .eq('user_id', userId)
       .order('updated_at', { ascending: false })
@@ -251,7 +250,7 @@ export async function getConversation(
 ): Promise<ConversationHistory | null> {
   try {
     const { data, error } = await supabase
-      .from('conversations')
+      .from('consultant_conversations')
       .select('*')
       .eq('id', conversationId)
       .eq('user_id', userId)
@@ -280,8 +279,16 @@ export async function getConversation(
 export async function getUserProfile(userId: string): Promise<any> {
   try {
     const { data, error } = await supabase
-      .from('user_profiles')
-      .select('*')
+      .from('users')
+      .select(`
+        *,
+        user_credits (
+          total_tokens,
+          used_tokens,
+          remaining_tokens,
+          last_reset
+        )
+      `)
       .eq('id', userId)
       .single();
 
@@ -308,9 +315,9 @@ export async function updateTokenUsage(
   tokensUsed: number
 ): Promise<void> {
   try {
-    const { error } = await supabase.rpc('update_user_tokens', {
+    const { error } = await supabaseServer.rpc('deduct_user_tokens', {
       user_id: userId,
-      tokens_used: tokensUsed
+      tokens_to_deduct: tokensUsed
     });
 
     if (error) {
@@ -334,9 +341,18 @@ export async function checkTokenAvailability(
   requiredTokens: number
 ): Promise<boolean> {
   try {
-    const profile = await getUserProfile(userId);
-    const remainingTokens = profile.monthly_tokens - profile.used_tokens;
-    return remainingTokens >= requiredTokens;
+    const { data, error } = await supabase
+      .from('user_credits')
+      .select('remaining_tokens')
+      .eq('user_id', userId)
+      .single();
+
+    if (error) {
+      console.error('Check token availability error:', error);
+      return false;
+    }
+
+    return data.remaining_tokens >= requiredTokens;
   } catch (error) {
     console.error('Check token availability error:', error);
     return false;

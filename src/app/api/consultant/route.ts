@@ -25,10 +25,11 @@ export async function POST(request: NextRequest) {
     }
 
     // Authenticate user
-    const user = await authenticateRequest(request);
-    if (!user) {
-      return createErrorResponse('Unauthorized', 401);
+    const authResult = await authenticateRequest(request);
+    if (!authResult.success || !authResult.user) {
+      return createErrorResponse(authResult.error || 'Unauthorized', 401);
     }
+    const user = authResult.user;
 
     // Check feature access
     if (!hasFeatureAccess(user, 'consultant')) {
@@ -110,19 +111,14 @@ export async function POST(request: NextRequest) {
       );
 
       // Step 8: Log API usage
-      await logAPIUsage(user.id, 'consultant', finalTokens, {
-        message_length: message.length,
-        response_length: aiResponse.length,
-        conversation_length: conversationHistory.length,
-        use_pro_model: useProModel
-      });
+      await logAPIUsage(user.id, 'consultant', finalTokens);
 
       // Format response
       const response = {
         message: aiResponse,
         conversationId: savedConversationId,
         tokens_used: finalTokens,
-        remaining_tokens: user.monthly_tokens - user.used_tokens - finalTokens,
+        remaining_tokens: (user.remaining_tokens || 0) - finalTokens,
         model_used: useProModel ? 'gemini-1.5-pro' : 'gemini-2.0-flash-exp'
       };
 
@@ -145,10 +141,11 @@ export async function POST(request: NextRequest) {
 export async function GET(request: NextRequest) {
   try {
     // Authenticate user
-    const user = await authenticateRequest(request);
-    if (!user) {
-      return createErrorResponse('Unauthorized', 401);
+    const authResult = await authenticateRequest(request);
+    if (!authResult.success || !authResult.user) {
+      return createErrorResponse(authResult.error || 'Unauthorized', 401);
     }
+    const user = authResult.user;
 
     // Check feature access
     if (!hasFeatureAccess(user, 'consultant')) {
@@ -200,10 +197,11 @@ export async function GET(request: NextRequest) {
 export async function DELETE(request: NextRequest) {
   try {
     // Authenticate user
-    const user = await authenticateRequest(request);
-    if (!user) {
-      return createErrorResponse('Unauthorized', 401);
+    const authResult = await authenticateRequest(request);
+    if (!authResult.success || !authResult.user) {
+      return createErrorResponse(authResult.error || 'Unauthorized', 401);
     }
+    const user = authResult.user;
 
     // Check feature access
     if (!hasFeatureAccess(user, 'consultant')) {

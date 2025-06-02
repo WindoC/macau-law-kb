@@ -24,10 +24,11 @@ export async function POST(request: NextRequest) {
     }
 
     // Authenticate user
-    const user = await authenticateRequest(request);
-    if (!user) {
-      return createErrorResponse('Unauthorized', 401);
+    const authResult = await authenticateRequest(request);
+    if (!authResult.success || !authResult.user) {
+      return createErrorResponse(authResult.error || 'Unauthorized', 401);
     }
+    const user = authResult.user;
 
     // Check feature access
     if (!hasFeatureAccess(user, 'qa')) {
@@ -80,11 +81,7 @@ export async function POST(request: NextRequest) {
       await saveQAHistory(user.id, question, answer, documentIds);
       
       // Step 7: Log API usage
-      await logAPIUsage(user.id, 'qa', actualTokens, {
-        question_length: question.length,
-        answer_length: answer.length,
-        sources_count: searchResults.length
-      });
+      await logAPIUsage(user.id, 'qa', actualTokens);
 
       // Format response
       const response = {
@@ -98,7 +95,7 @@ export async function POST(request: NextRequest) {
           title: result.metadata?.title || `文件 #${result.id}`
         })),
         tokens_used: actualTokens,
-        remaining_tokens: user.monthly_tokens - user.used_tokens - actualTokens
+        remaining_tokens: (user.remaining_tokens || 0) - actualTokens
       };
 
       return createSuccessResponse(response);
@@ -120,10 +117,11 @@ export async function POST(request: NextRequest) {
 export async function GET(request: NextRequest) {
   try {
     // Authenticate user
-    const user = await authenticateRequest(request);
-    if (!user) {
-      return createErrorResponse('Unauthorized', 401);
+    const authResult = await authenticateRequest(request);
+    if (!authResult.success || !authResult.user) {
+      return createErrorResponse(authResult.error || 'Unauthorized', 401);
     }
+    const user = authResult.user;
 
     // Get query parameters
     const { searchParams } = new URL(request.url);
