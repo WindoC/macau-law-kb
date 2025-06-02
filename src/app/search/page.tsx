@@ -1,6 +1,8 @@
 'use client';
 
 import { useState } from 'react';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import Navigation from '@/components/Navigation';
 
 /**
@@ -63,7 +65,7 @@ export default function SearchPage() {
   };
 
   const copyResult = (result: any) => {
-    const content = `**搜索結果**\n\n**標題:** ${result.title}\n\n**內容:** ${result.content}\n\n**相關度:** ${Math.round(result.similarity * 100)}%`;
+    const content = `**搜索結果**\n\n**標題:** ${result.metadata.law_id} - ${result.metadata.title}\n\n**段落位置:** 第 ${result.metadata.loc.lines.from} 至 ${result.metadata.loc.lines.to} 行\n\n**連結:** ${result.metadata.link}\n\n**相關度:** ${Math.round(result.similarity * 100)}%\n\n**內容:**\n${result.content}`;
     navigator.clipboard.writeText(content);
     setWarning('已複製到剪貼板');
     setTimeout(() => setWarning(null), 3000);
@@ -160,16 +162,28 @@ export default function SearchPage() {
                       <div className="card border-start border-primary border-3">
                         <div className="card-body">
                           <div className="d-flex justify-content-between align-items-start mb-2">
-                            <h5 className="card-title text-primary">{result.title}</h5>
+                            <span className="badge bg-success text-white">
+                              第 {result.metadata.loc.lines.from} 至 {result.metadata.loc.lines.to} 行
+                            </span>
+                            <span className="badge bg-warning text-white">
+                              <a target="_blank" rel="noopener noreferrer" href={result.metadata.link}>印務局文件</a>
+                            </span>
                             <span className="badge bg-primary">
                               相關度: {Math.round(result.similarity * 100)}%
                             </span>
                           </div>
-                          <p className="card-text">{result.content}</p>
+                          <div className="d-flex justify-content-between align-items-start mb-2">
+                            <h5 className="card-title text-primary">{result.metadata.law_id} - {result.metadata.title}</h5>
+                          </div>
+                          <div className="card-text">
+                            <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                              {result.content}
+                            </ReactMarkdown>
+                          </div>
                           <div className="d-flex justify-content-between align-items-center">
                             <small className="text-muted">
                               <i className="fas fa-file-alt me-1"></i>
-                              法律文件 #{result.id}
+                              #{result.id}
                             </small>
                             <button 
                               className="btn btn-sm btn-outline-primary"
