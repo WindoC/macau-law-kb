@@ -10,9 +10,9 @@ const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
 
 // Model configurations
 const MODELS = {
-  FLASH: 'gemini-2.0-flash-exp',
-  PRO: 'gemini-1.5-pro',
-  EMBEDDING: 'text-embedding-004'
+  FLASH: 'gemini-2.5-flash-preview-05-20',
+  PRO: 'gemini-2.5-pro-preview-05-06',
+  EMBEDDING: 'gemini-embedding-exp-03-07'
 } as const;
 
 /**
