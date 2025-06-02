@@ -222,7 +222,7 @@ export default function ProfilePage() {
                       </div>
                     </div>
                     <div className="col-md-4 text-center">
-                      <div className="mb-3">
+                      {/* <div className="mb-3">
                         <img
                           src={profile.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(profile.name)}&background=0d6efd&color=fff&size=120`}
                           alt="個人頭像"
@@ -231,11 +231,11 @@ export default function ProfilePage() {
                           height="120"
                           style={{ objectFit: 'cover' }}
                         />
-                      </div>
-                      <button className="btn btn-outline-info btn-sm">
+                      </div> */}
+                      {/* <button className="btn btn-outline-info btn-sm">
                         <i className="fas fa-camera me-1"></i>
                         更換頭像
-                      </button>
+                      </button> */}
                     </div>
                   </div>
                 )}
@@ -254,35 +254,35 @@ export default function ProfilePage() {
                 {credits && (
                   <div>
                     <div className="row mb-3">
-                      <div className="col-md-3">
+                      <div className="col-md-4">
                         <div className="text-center p-3 bg-primary text-white rounded">
                           <h4>{credits.remaining_tokens.toLocaleString()}</h4>
                           <small>剩餘代幣</small>
                         </div>
                       </div>
-                      <div className="col-md-3">
+                      <div className="col-md-4">
                         <div className="text-center p-3 bg-success text-white rounded">
                           <h4>{credits.used_tokens.toLocaleString()}</h4>
                           <small>本月已使用</small>
                         </div>
                       </div>
-                      <div className="col-md-3">
-                        <div className="text-center p-3 bg-info text-white rounded">
+                      <div className="col-md-4">
+                        <div className="text-center p-3 bg-warning text-dark rounded">
                           <h4>{credits.monthly_limit.toLocaleString()}</h4>
                           <small>月度限額</small>
                         </div>
                       </div>
-                      <div className="col-md-3">
+                      {/* <div className="col-md-3">
                         <div className="text-center p-3 bg-warning text-dark rounded">
                           <h4>
                             {Math.round((credits.used_tokens / credits.monthly_limit) * 100)}%
                           </h4>
                           <small>使用率</small>
                         </div>
-                      </div>
+                      </div> */}
                     </div>
 
-                    <div className="mb-3">
+                    {/* <div className="mb-3">
                       <label className="form-label">使用進度</label>
                       <div className="progress" style={{ height: '20px' }}>
                         <div
@@ -296,7 +296,7 @@ export default function ProfilePage() {
                           {Math.round((credits.used_tokens / credits.monthly_limit) * 100)}%
                         </div>
                       </div>
-                    </div>
+                    </div> */}
 
                     <div className="alert alert-info">
                       <i className="fas fa-calendar-alt me-2"></i>
