@@ -29,40 +29,50 @@ process.env.JWT_SECRET = 'test-jwt-secret'
 process.env.CSRF_SECRET = 'test-csrf-secret'
 
 // Mock global Response for Node.js environment
-global.Response = class Response {
-  constructor(body, init = {}) {
-    this.body = body
+class MockResponse {
+  body: string
+  status: number
+  statusText: string
+  headers: Map<string, string>
+
+  constructor(body?: BodyInit | null, init: ResponseInit = {}) {
+    this.body = typeof body === 'string' ? body : JSON.stringify(body)
     this.status = init.status || 200
     this.statusText = init.statusText || 'OK'
     this.headers = new Map(Object.entries(init.headers || {}))
   }
 
-  json() {
-    return Promise.resolve(JSON.parse(this.body))
+  async json(): Promise<any> {
+    return JSON.parse(this.body)
   }
 
-  text() {
-    return Promise.resolve(this.body)
+  async text(): Promise<string> {
+    return this.body
   }
 }
 
 // Mock global Request for Node.js environment
-global.Request = class Request {
-  constructor(url, init = {}) {
+class MockRequest {
+  url: string
+  method: string
+  headers: Map<string, string>
+  body?: string
+
+  constructor(url: string, init: RequestInit = {}) {
     this.url = url
     this.method = init.method || 'GET'
-    this.headers = new Map(Object.entries(init.headers || {}))
-    this.body = init.body
+    this.headers = new Map(Object.entries((init.headers as Record<string, string>) || {}))
+    this.body = typeof init.body === 'string' ? init.body : undefined
   }
 
-  json() {
-    return Promise.resolve(JSON.parse(this.body))
+  async json(): Promise<any> {
+    return this.body ? JSON.parse(this.body) : undefined
   }
 }
 
 // Mock Headers
-global.Headers = class Headers extends Map {
-  constructor(init) {
+class MockHeaders extends Map<string, string> {
+  constructor(init?: HeadersInit) {
     super()
     if (init) {
       if (Array.isArray(init)) {
@@ -73,7 +83,7 @@ global.Headers = class Headers extends Map {
     }
   }
 
-  append(name, value) {
+  append(name: string, value: string): void {
     const existing = this.get(name)
     if (existing) {
       this.set(name, `${existing}, ${value}`)
@@ -82,3 +92,8 @@ global.Headers = class Headers extends Map {
     }
   }
 }
+
+// Assign mocks to global (using type assertion to avoid conflicts)
+;(global as any).Response = MockResponse
+;(global as any).Request = MockRequest
+;(global as any).Headers = MockHeaders
