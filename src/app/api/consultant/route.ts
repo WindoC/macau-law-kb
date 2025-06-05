@@ -18,38 +18,47 @@ import { supabase } from '@/lib/supabase';
  * Handles AI-powered legal consultation with conversation history
  */
 export async function POST(request: NextRequest) {
+  console.log('POST request received at /api/consultant'); // Debug log
   try {
     // Validate request method
     if (!validateMethod(request, ['POST'])) {
+      console.log('Method not allowed'); // Debug log
       return createErrorResponse('不允許使用此方法', 405);
     }
 
     // Authenticate user
     const authResult = await authenticateRequest(request);
     if (!authResult.success || !authResult.user) {
+      console.log('Authentication failed'); // Debug log
       return createErrorResponse(authResult.error || '未經授權', 401);
     }
     const user = authResult.user;
+    console.log('User authenticated:', user.id); // Debug log
 
     // Check feature access
     if (!hasFeatureAccess(user, 'consultant')) {
+      console.log('Feature access denied'); // Debug log
       return createErrorResponse('存取遭拒 - 顧問功能需要付費訂閱', 403);
     }
 
     // Parse request body
     const body = await request.json();
     const { message, conversationId, useProModel = false } = body;
+    console.log('Request body:', body); // Debug log
 
     if (!message || typeof message !== 'string' || message.trim().length === 0) {
+      console.log('Message is required'); // Debug log
       return createErrorResponse('訊息是必需的');
     }
 
     if (message.length > 3000) {
+      console.log('Message too long'); // Debug log
       return createErrorResponse('訊息太長 (最多 3000 個字元)');
     }
 
     // Check if user can use Pro model
     if (useProModel && !canUseProModel(user)) {
+      console.log('Pro model access denied'); // Debug log
       return createErrorResponse('Pro 模型存取需要 VIP 訂閱', 403);
     }
 
@@ -59,6 +68,7 @@ export async function POST(request: NextRequest) {
 
     // Check token availability
     if (!hasTokens(user, estimatedTokens)) {
+      console.log('Not enough tokens'); // Debug log
       return createErrorResponse('代幣不足', 402);
     }
 
@@ -67,9 +77,13 @@ export async function POST(request: NextRequest) {
       let conversationHistory: Array<{ role: 'user' | 'assistant'; content: string; timestamp: string }> = [];
       
       if (conversationId) {
+        console.log('Conversation ID provided:', conversationId); // Debug log
         const conversation = await getConversation(conversationId, user.id);
         if (conversation) {
           conversationHistory = conversation.messages;
+          console.log('Conversation history retrieved:', conversationHistory.length); // Debug log
+        } else {
+          console.log('Conversation not found'); // Debug log
         }
       }
 
@@ -86,6 +100,7 @@ export async function POST(request: NextRequest) {
         conversationHistory.map(msg => ({ role: msg.role, content: msg.content })),
         useProModel
       );
+      console.log('AI response generated'); // Debug log
 
       // Step 4: Add AI response to history
       conversationHistory.push({
@@ -101,6 +116,7 @@ export async function POST(request: NextRequest) {
 
       // Step 6: Update user token usage
       await updateTokenUsage(user.id, finalTokens);
+      console.log('Token usage updated:', finalTokens); // Debug log
 
       // Step 7: Save conversation
       const savedConversationId = await saveConversation(
@@ -109,9 +125,11 @@ export async function POST(request: NextRequest) {
         conversationHistory,
         conversationHistory.length === 2 ? `諮詢: ${message.substring(0, 50)}...` : undefined
       );
+      console.log('Conversation saved:', savedConversationId); // Debug log
 
       // Step 8: Log API usage
       await logAPIUsage(user.id, 'consultant', finalTokens);
+      console.log('API usage logged'); // Debug log
 
       // Format response
       const response = {
@@ -119,8 +137,9 @@ export async function POST(request: NextRequest) {
         conversationId: savedConversationId,
         tokens_used: finalTokens,
         remaining_tokens: (user.remaining_tokens || 0) - finalTokens,
-        model_used: useProModel ? 'gemini-1.5-pro' : 'gemini-2.0-flash-exp'
+        model_used: useProModel ? 'gemini-pro' : 'gemini-flash',
       };
+      console.log('Response:', response); // Debug log
 
       return createSuccessResponse(response);
 
