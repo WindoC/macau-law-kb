@@ -189,7 +189,10 @@ export default function SearchPage() {
                       <div className="card border-start border-primary border-3">
                         <div className="card-body">
                           <div className="d-flex justify-content-between align-items-start mb-2">
-                            <span className="badge bg-success text-white">
+                            <span className="bg-success text-white" style={{ padding: '0rem 0.75rem', borderRadius: '0.25rem' }}>
+                              文件 {index + 1}
+                            </span>
+                            <span className="badge bg-info text-black">
                               第 {result.metadata.loc.lines.from} 至 {result.metadata.loc.lines.to} 行
                             </span>
                             <span className="badge bg-warning text-white">

@@ -184,7 +184,7 @@ export default function QAPage() {
                   <div className="card-header bg-success text-white">
                     <h5 className="mb-0">
                       <i className="fas fa-lightbulb me-2"></i>
-                      AI 法律建議
+                      AI 法律問答
                     </h5>
                   </div>
                   <div className="card-body">
@@ -197,7 +197,7 @@ export default function QAPage() {
                       </div>
                     </div>
                     <div className="mb-3">
-                      <h6 className="text-success">專業回答:</h6>
+                      <h6 className="text-success">AI 的回答:</h6>
                       <div className="border-start border-success border-3 ps-3">
                         <div className="mb-0">
                           <ReactMarkdown remarkPlugins={[remarkGfm]}>
@@ -234,7 +234,10 @@ export default function QAPage() {
                           <div className="card border-start border-success border-2">
                             <div className="card-body">
                               <div className="d-flex justify-content-between align-items-start mb-2">
-                                <span className="badge bg-success text-white">
+                                <span className="bg-success text-white" style={{ padding: '0rem 0.75rem', borderRadius: '0.25rem' }}>
+                                  文件 {index + 1}
+                                </span>
+                                <span className="badge bg-info text-black">
                                   第 {source.metadata.loc.lines.from} 至 {source.metadata.loc.lines.to} 行
                                 </span>
                                 <span className="badge bg-warning text-white">
