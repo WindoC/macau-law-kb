@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import Navigation from '@/components/Navigation';
@@ -16,6 +16,33 @@ export default function QAPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [warning, setWarning] = useState<string | null>(null);
+  const [fragmentIdentifiers, setFragmentIdentifiers] = useState<{[key: string]: string}>({});
+  const [expandedSources, setExpandedSources] = useState<{[key: string]: boolean}>({});
+
+  useEffect(() => {
+    const extractFragmentIdentifiers = () => {
+      const newFragmentIdentifiers: { [key: string]: string } = {};
+      sources.forEach((source) => {
+        const regex = /<a name="([^"]*)">/i;
+        const match = source.content.match(regex);
+        if (match && match[1]) {
+          newFragmentIdentifiers[source.id] = match[1];
+        } else {
+          newFragmentIdentifiers[source.id] = '';
+        }
+      });
+      setFragmentIdentifiers(newFragmentIdentifiers);
+    };
+
+    extractFragmentIdentifiers();
+  }, [sources]);
+
+  const toggleSource = (id: string) => {
+    setExpandedSources(prevState => ({
+      ...prevState,
+      [id]: !prevState[id]
+    }));
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -211,7 +238,7 @@ export default function QAPage() {
                                   第 {source.metadata.loc.lines.from} 至 {source.metadata.loc.lines.to} 行
                                 </span>
                                 <span className="badge bg-warning text-white">
-                                  <a target="_blank" rel="noopener noreferrer" href={source.metadata.link}>印務局文件</a>
+                                  <a target="_blank" rel="noopener noreferrer"  href={`${source.metadata.link}${fragmentIdentifiers[source.id] ? `#${fragmentIdentifiers[source.id]}` : ''}`}>印務局文件</a>
                                 </span>
                                 <span className="badge bg-primary">
                                   相關度: {Math.round(source.similarity * 100)}%
@@ -220,10 +247,21 @@ export default function QAPage() {
                               <div className="d-flex justify-content-between align-items-start mb-2">
                                 <h6 className="card-title text-success">{source.metadata.law_id} - {source.metadata.title}</h6>
                               </div>
-                              <div className="card-text small">
-                                <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                                  {source.content}
-                                </ReactMarkdown>
+                              <div className="card-text">
+                                <div 
+                                  style={{ 
+                                    maxHeight: expandedSources[source.id] ? 'none' : '150px', // Adjust max height as needed
+                                    overflow: 'hidden',
+                                    transition: 'max-height 0.3s ease'
+                                  }}
+                                  dangerouslySetInnerHTML={{ __html: source.content }}
+                                />
+                                <button
+                                  className="btn btn-link p-0"
+                                  onClick={() => toggleSource(source.id)}
+                                >
+                                  {expandedSources[source.id] ? '- 摺疊內容' : '+ 展開內容'}
+                                </button>
                               </div>
                               <small className="text-muted">
                                 <i className="fas fa-file-alt me-1"></i>
