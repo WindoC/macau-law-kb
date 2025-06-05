@@ -19,25 +19,35 @@ import { supabase } from '@/lib/supabase';
 export async function POST(request: NextRequest) {
   try {
     // Validate request method
-    if (!validateMethod(request, ['POST'])) {
+    console.log('Validating request method...');
+    const validateMethodResult = validateMethod(request, ['POST']);
+    console.log('validateMethod input:', ['POST'], 'output:', validateMethodResult);
+    if (!validateMethodResult) {
       return createErrorResponse('不允許使用此方法', 405);
     }
 
     // Authenticate user
+    console.log('Authenticating user...');
     const authResult = await authenticateRequest(request);
+    console.log('authenticateRequest input:', request, 'output:', authResult);
     if (!authResult.success || !authResult.user) {
       return createErrorResponse(authResult.error || '未經授權', 401);
     }
     const user = authResult.user;
 
     // Check feature access
-    if (!hasFeatureAccess(user, 'search')) {
+    console.log('Checking feature access...');
+    const hasFeatureAccessResult = hasFeatureAccess(user, 'search');
+    console.log('hasFeatureAccess input:', user, 'search', 'output:', hasFeatureAccessResult);
+    if (!hasFeatureAccessResult) {
       return createErrorResponse('存取遭拒', 403);
     }
 
     // Parse request body
+    console.log('Parsing request body...');
     const body = await request.json();
     const { query } = body;
+    console.log('Parsed request body:', body);
 
     if (!query || typeof query !== 'string' || query.trim().length === 0) {
       return createErrorResponse('查詢是必需的');
@@ -48,35 +58,56 @@ export async function POST(request: NextRequest) {
     }
 
     // Estimate token usage
+    console.log('Estimating token usage...');
     const estimatedTokens = countTokens(query) + 50; // Base cost for processing
+    console.log('countTokens input:', query, 'output:', countTokens(query), 'estimatedTokens:', estimatedTokens);
 
     // Check token availability
-    if (!hasTokens(user, estimatedTokens)) {
+    console.log('Checking token availability...');
+    const hasTokensResult = hasTokens(user, estimatedTokens);
+    console.log('hasTokens input:', user, estimatedTokens, 'output:', hasTokensResult);
+    if (!hasTokensResult) {
       return createErrorResponse('代幣不足', 402);
     }
 
     try {
       // Step 1: Generate search keywords using AI
+      console.log('Generating search keywords...');
       const keywords = await generateSearchKeywords(query);
+      console.log('generateSearchKeywords input:', query, 'output:', keywords);
       
-      // Step 2: Generate embedding for the query
-      const queryEmbedding = await generateEmbedding(query);
+      // Step 2: Generate embedding for the keywords
+      console.log('Generating embedding for the keywords...');
+      const keywordsEmbedding = await generateEmbedding(keywords.join(' '));
+      console.log('generateEmbedding input:', keywords.join(' '), 'output:', keywordsEmbedding);
       
       // Step 3: Search documents using vector similarity
-      const searchResults = await searchDocuments(queryEmbedding, 5);
+      console.log('Searching documents...');
+      const searchResults = await searchDocuments(keywordsEmbedding, 5);
+      console.log('searchDocuments input:', keywordsEmbedding, 5, 'output:', searchResults);
       
       // Step 4: Calculate actual token usage
+      console.log('Calculating actual token usage...');
       const actualTokens = countTokens(query) + countTokens(keywords.join(' ')) + 30;
+      console.log('countTokens query input:', query, 'output:', countTokens(query));
+      console.log('countTokens keywords input:', keywords.join(' '), 'output:', countTokens(keywords.join(' ')));
+      console.log('actualTokens:', actualTokens);
       
       // Step 5: Update user token usage
+      console.log('Updating user token usage...');
       await updateTokenUsage(user.id, actualTokens);
+      console.log('updateTokenUsage input:', user.id, actualTokens);
       
       // Step 6: Save search history
+      console.log('Saving search history...');
       const documentIds = searchResults.map(result => result.id);
       await saveSearchHistory(user.id, query, documentIds);
+      console.log('saveSearchHistory input:', user.id, query, documentIds);
       
       // Step 7: Log API usage
+      console.log('Logging API usage...');
       await logAPIUsage(user.id, 'search', actualTokens);
+      console.log('logAPIUsage input:', user.id, 'search', actualTokens);
 
       // Format response
       const response = {

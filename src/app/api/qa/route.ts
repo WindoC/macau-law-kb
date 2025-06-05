@@ -17,27 +17,38 @@ import { supabase } from '@/lib/supabase';
  * Handles AI-powered legal question answering with context from vector search
  */
 export async function POST(request: NextRequest) {
+  console.log('POST request received at /api/qa'); // Added debug log
   try {
     // Validate request method
-    if (!validateMethod(request, ['POST'])) {
+    console.log('Validating request method...');
+    const validateMethodResult = validateMethod(request, ['POST']);
+    console.log('validateMethod input:', ['POST'], 'output:', validateMethodResult);
+    if (!validateMethodResult) {
       return createErrorResponse('不允許使用此方法', 405);
     }
 
     // Authenticate user
+    console.log('Authenticating user...');
     const authResult = await authenticateRequest(request);
+    console.log('authenticateRequest input:', request, 'output:', authResult);
     if (!authResult.success || !authResult.user) {
       return createErrorResponse(authResult.error || '未經授權', 401);
     }
     const user = authResult.user;
 
     // Check feature access
-    if (!hasFeatureAccess(user, 'qa')) {
+    console.log('Checking feature access...');
+    const hasFeatureAccessResult = hasFeatureAccess(user, 'qa');
+    console.log('hasFeatureAccess input:', user, 'qa', 'output:', hasFeatureAccessResult);
+    if (!hasFeatureAccessResult) {
       return createErrorResponse('存取遭拒', 403);
     }
 
     // Parse request body
+    console.log('Parsing request body...');
     const body = await request.json();
     const { question } = body;
+    console.log('Parsed request body:', body);
 
     if (!question || typeof question !== 'string' || question.trim().length === 0) {
       return createErrorResponse('問題是必需的');
@@ -48,40 +59,59 @@ export async function POST(request: NextRequest) {
     }
 
     // Estimate token usage
+    console.log('Estimating token usage...');
     const estimatedTokens = countTokens(question) + 200; // Higher cost for Q&A
+    console.log('countTokens input:', question, 'output:', countTokens(question), 'estimatedTokens:', estimatedTokens);
 
     // Check token availability
-    if (!hasTokens(user, estimatedTokens)) {
+    console.log('Checking token availability...');
+    const hasTokensResult = hasTokens(user, estimatedTokens);
+    console.log('hasTokens input:', user, estimatedTokens, 'output:', hasTokensResult);
+    if (!hasTokensResult) {
       return createErrorResponse('代幣不足', 402);
     }
 
     try {
       // Step 1: Generate embedding for the question
+      console.log('Generating embedding for the question...');
       const questionEmbedding = await generateEmbedding(question);
+      console.log('generateEmbedding input:', question, 'output:', questionEmbedding);
       
       // Step 2: Search for relevant documents
+      console.log('Searching for relevant documents...');
       const searchResults = await searchDocuments(questionEmbedding, 20);
+      console.log('searchDocuments input:', questionEmbedding, 20, 'output:', searchResults);
       
       if (searchResults.length === 0) {
         return createErrorResponse('找不到與您的問題相關的法律文件');
       }
 
       // Step 3: Generate AI answer based on search results
+      console.log('Generating AI answer...');
       const answer = await generateLegalAnswer(question, searchResults);
+      console.log('generateLegalAnswer input:', question, searchResults, 'output:', answer);
       
       // Step 4: Calculate actual token usage
+      console.log('Calculating actual token usage...');
       const contextTokens = searchResults.reduce((sum, result) => sum + countTokens(result.content), 0);
       const actualTokens = countTokens(question) + countTokens(answer) + Math.min(contextTokens, 1000) + 50;
+      console.log('contextTokens:', contextTokens, 'actualTokens:', actualTokens);
       
       // Step 5: Update user token usage
+      console.log('Updating user token usage...');
       await updateTokenUsage(user.id, actualTokens);
+      console.log('updateTokenUsage input:', user.id, actualTokens);
       
       // Step 6: Save Q&A history
+      console.log('Saving Q&A history...');
       const documentIds = searchResults.map(result => result.id);
       await saveQAHistory(user.id, question, answer, documentIds);
+      console.log('saveQAHistory input:', user.id, question, answer, documentIds);
       
       // Step 7: Log API usage
+      console.log('Logging API usage...');
       await logAPIUsage(user.id, 'qa', actualTokens);
+      console.log('logAPIUsage input:', user.id, 'qa', actualTokens);
 
       // Format response
       const response = {
