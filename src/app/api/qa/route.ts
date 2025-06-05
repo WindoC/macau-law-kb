@@ -8,7 +8,7 @@ import {
   validateMethod,
   logAPIUsage
 } from '@/lib/auth';
-import { generateEmbedding, generateLegalAnswer, countTokens } from '@/lib/gemini';
+import { generateEmbedding, generateSearchKeywords, generateLegalAnswer, countTokens } from '@/lib/gemini';
 import { searchDocuments, saveQAHistory, updateTokenUsage } from '@/lib/database';
 import { supabase } from '@/lib/supabase';
 
@@ -72,43 +72,48 @@ export async function POST(request: NextRequest) {
     }
 
     try {
-      // Step 1: Generate embedding for the question
-      console.log('Generating embedding for the question...');
-      const questionEmbedding = await generateEmbedding(question);
-      console.log('generateEmbedding input:', question, 'output:', questionEmbedding);
+      // Step 1: Generate search keywords using AI
+      console.log('Generating search keywords...');
+      const keywords = await generateSearchKeywords(question);
+      console.log('generateSearchKeywords input:', question, 'output:', keywords);
       
-      // Step 2: Search for relevant documents
-      console.log('Searching for relevant documents...');
-      const searchResults = await searchDocuments(questionEmbedding, 20);
-      console.log('searchDocuments input:', questionEmbedding, 20, 'output:', searchResults);
+      // Step 2: Generate embedding for the keywords
+      console.log('Generating embedding for the keywords...');
+      const keywordsEmbedding = await generateEmbedding(keywords.join(' '));
+      console.log('generateEmbedding input:', keywords.join(' '), 'output:', keywordsEmbedding);
+      
+      // Step 3: Search documents using vector similarity
+      console.log('Searching documents...');
+      const searchResults = await searchDocuments(keywordsEmbedding, 20);
+      console.log('searchDocuments input:', keywordsEmbedding, 20, 'output:', searchResults);
       
       if (searchResults.length === 0) {
         return createErrorResponse('找不到與您的問題相關的法律文件');
       }
 
-      // Step 3: Generate AI answer based on search results
+      // Step 4: Generate AI answer based on search results
       console.log('Generating AI answer...');
       const answer = await generateLegalAnswer(question, searchResults);
       console.log('generateLegalAnswer input:', question, searchResults, 'output:', answer);
       
-      // Step 4: Calculate actual token usage
+      // Step 5: Calculate actual token usage
       console.log('Calculating actual token usage...');
       const contextTokens = searchResults.reduce((sum, result) => sum + countTokens(result.content), 0);
       const actualTokens = countTokens(question) + countTokens(answer) + Math.min(contextTokens, 1000) + 50;
       console.log('contextTokens:', contextTokens, 'actualTokens:', actualTokens);
       
-      // Step 5: Update user token usage
+      // Step 6: Update user token usage
       console.log('Updating user token usage...');
       await updateTokenUsage(user.id, actualTokens);
       console.log('updateTokenUsage input:', user.id, actualTokens);
       
-      // Step 6: Save Q&A history
+      // Step 7: Save Q&A history
       console.log('Saving Q&A history...');
       const documentIds = searchResults.map(result => result.id);
       await saveQAHistory(user.id, question, answer, documentIds);
       console.log('saveQAHistory input:', user.id, question, answer, documentIds);
       
-      // Step 7: Log API usage
+      // Step 8: Log API usage
       console.log('Logging API usage...');
       await logAPIUsage(user.id, 'qa', actualTokens);
       console.log('logAPIUsage input:', user.id, 'qa', actualTokens);
