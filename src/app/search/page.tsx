@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import Navigation from '@/components/Navigation';
@@ -15,6 +15,26 @@ export default function SearchPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [warning, setWarning] = useState<string | null>(null);
+  const [fragmentIdentifiers, setFragmentIdentifiers] = useState<{[key: string]: string}>({});
+  const [expandedResults, setExpandedResults] = useState<{[key: string]: boolean}>({});
+
+  useEffect(() => {
+    const extractFragmentIdentifiers = () => {
+      const newFragmentIdentifiers: { [key: string]: string } = {};
+      results.forEach((result) => {
+        const regex = /<a name="([^"]*)">/i;
+        const match = result.content.match(regex);
+        if (match && match[1]) {
+          newFragmentIdentifiers[result.id] = match[1];
+        } else {
+          newFragmentIdentifiers[result.id] = '';
+        }
+      });
+      setFragmentIdentifiers(newFragmentIdentifiers);
+    };
+
+    extractFragmentIdentifiers();
+  }, [results]);
 
   const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -65,10 +85,17 @@ export default function SearchPage() {
   };
 
   const copyResult = (result: any) => {
-    const content = `**搜索結果**\n\n**標題:** ${result.metadata.law_id} - ${result.metadata.title}\n\n**段落位置:** 第 ${result.metadata.loc.lines.from} 至 ${result.metadata.loc.lines.to} 行\n\n**連結:** ${result.metadata.link}\n\n**相關度:** ${Math.round(result.similarity * 100)}%\n\n**內容:**\n${result.content}`;
+    const content = `**搜索結果**\n\n**標題:** ${result.metadata.law_id} - ${result.metadata.title}\n\n**段落位置:** 第 ${result.metadata.loc.lines.from} 至 ${result.metadata.loc.lines.to} 行\n\n**連結:** ${result.metadata.link}${fragmentIdentifiers[result.id] ? `#${fragmentIdentifiers[result.id]}` : ''}\n\n**相關度:** ${Math.round(result.similarity * 100)}%\n\n**內容:**\n${result.content}`;
     navigator.clipboard.writeText(content);
     setWarning('已複製到剪貼板');
     setTimeout(() => setWarning(null), 3000);
+  };
+
+  const toggleResult = (id: string) => {
+    setExpandedResults(prevState => ({
+      ...prevState,
+      [id]: !prevState[id]
+    }));
   };
 
   return (
@@ -166,7 +193,13 @@ export default function SearchPage() {
                               第 {result.metadata.loc.lines.from} 至 {result.metadata.loc.lines.to} 行
                             </span>
                             <span className="badge bg-warning text-white">
-                              <a target="_blank" rel="noopener noreferrer" href={result.metadata.link}>印務局文件</a>
+                              <a 
+                                target="_blank" 
+                                rel="noopener noreferrer" 
+                                href={`${result.metadata.link}${fragmentIdentifiers[result.id] ? `#${fragmentIdentifiers[result.id]}` : ''}`}
+                              >
+                                印務局文件
+                              </a>
                             </span>
                             <span className="badge bg-primary">
                               相關度: {Math.round(result.similarity * 100)}%
@@ -176,16 +209,27 @@ export default function SearchPage() {
                             <h5 className="card-title text-primary">{result.metadata.law_id} - {result.metadata.title}</h5>
                           </div>
                           <div className="card-text">
-                            <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                              {result.content}
-                            </ReactMarkdown>
+                            <div 
+                              style={{ 
+                                maxHeight: expandedResults[result.id] ? 'none' : '150px', // Adjust max height as needed
+                                overflow: 'hidden',
+                                transition: 'max-height 0.3s ease'
+                              }}
+                              dangerouslySetInnerHTML={{ __html: result.content }}
+                            />
+                            <button
+                              className="btn btn-link p-0"
+                              onClick={() => toggleResult(result.id)}
+                            >
+                              {expandedResults[result.id] ? '- 摺疊內容' : '+ 展開內容'}
+                            </button>
                           </div>
                           <div className="d-flex justify-content-between align-items-center">
                             <small className="text-muted">
                               <i className="fas fa-file-alt me-1"></i>
                               #{result.id}
                             </small>
-                            <button 
+                            <button
                               className="btn btn-sm btn-outline-primary"
                               onClick={() => copyResult(result)}
                             >
