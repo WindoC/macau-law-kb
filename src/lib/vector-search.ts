@@ -16,10 +16,11 @@ export async function searchDocuments(
 ): Promise<SearchResult[]> {
   try {
     // Generate embedding for the search query
-    const { embedding } = await generateEmbedding(query);
+    const embeddingResult = await generateEmbedding(query);
+    const embedding = embeddingResult.embedding;
     
     // Perform vector similarity search
-    const { data, error } = await supabaseAdmin.rpc(RPC_FUNCTIONS.MATCH_DOCUMENTS, {
+    const { data, error } = await supabaseAdmin!.rpc(RPC_FUNCTIONS.MATCH_DOCUMENTS, {
       query_embedding: embedding,
       match_count: matchCount,
       filter: filter
@@ -69,7 +70,7 @@ export async function searchByLawId(
  */
 export async function getLawDocument(lawId: string) {
   try {
-    const { data, error } = await supabaseAdmin
+    const { data, error } = await supabaseAdmin!
       .from(TABLES.LAW)
       .select('*')
       .eq('law_id', lawId)
@@ -94,7 +95,7 @@ export async function getLawDocument(lawId: string) {
  */
 export async function getDocumentsByIds(documentIds: number[]) {
   try {
-    const { data, error } = await supabaseAdmin
+    const { data, error } = await supabaseAdmin!
       .from(TABLES.DOCUMENTS)
       .select('*')
       .in('id', documentIds);
@@ -150,7 +151,7 @@ export async function findRelatedLaws(
     }
 
     // Search for documents with these law IDs
-    const { data, error } = await supabaseAdmin
+    const { data, error } = await supabaseAdmin!
       .from(TABLES.DOCUMENTS)
       .select('id, content, metadata')
       .contains('metadata', { law_id: relatedLawIds })
@@ -216,7 +217,7 @@ export async function advancedSearch(options: {
       return await searchDocuments(query, matchCount, filter);
     } else {
       // Metadata-only search
-      const { data, error } = await supabaseAdmin
+      const { data, error } = await supabaseAdmin!
         .from(TABLES.DOCUMENTS)
         .select('id, content, metadata')
         .contains('metadata', filter)
@@ -252,7 +253,7 @@ export async function getSearchSuggestions(
 ): Promise<string[]> {
   try {
     // Search for law titles and IDs that match the partial query
-    const { data, error } = await supabaseAdmin
+    const { data, error } = await supabaseAdmin!
       .from(TABLES.LAW)
       .select('law_id, title')
       .or(`law_id.ilike.%${partialQuery}%,title.ilike.%${partialQuery}%`)
