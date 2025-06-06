@@ -1,4 +1,4 @@
-import { GoogleGenerativeAI } from '@google/generative-ai';
+import { GoogleGenAI } from '@google/genai';
 
 /**
  * Gemini AI service for legal document processing
@@ -6,7 +6,7 @@ import { GoogleGenerativeAI } from '@google/generative-ai';
  */
 
 // Initialize Gemini AI with API key
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
+const ai = new GoogleGenAI({apiKey: process.env.GEMINI_API_KEY!});
 
 // Model configurations
 const MODELS = {
@@ -18,13 +18,33 @@ const MODELS = {
 /**
  * Generate embeddings for text using Gemini embedding model
  * @param text - Text to generate embeddings for
- * @returns Promise<number[]> - Array of embedding values
+ * @returns Promise<{ embedding: number[]; tokenCount: number | undefined }> - Object containing array of embedding values and the token count
  */
-export async function generateEmbedding(text: string): Promise<number[]> {
+export async function generateEmbedding(text: string): Promise<{ embedding: number[]; tokenCount: number | undefined }> {
   try {
-    const model = genAI.getGenerativeModel({ model: MODELS.EMBEDDING });
-    const result = await model.embedContent(text);
-    return result.embedding.values;
+    // const countTokensResponse = await ai.models.countTokens({
+    //   model: MODELS.EMBEDDING,
+    //   contents: text,
+    // });
+    
+    // if (countTokensResponse.totalTokens === undefined) {
+    //   throw new Error('Invalid token count response');
+    // }
+    
+    const response = await ai.models.embedContent({
+      model: MODELS.EMBEDDING,
+      contents: text,
+    });
+    
+    if (!response.embeddings || !response.embeddings[0] || !response.embeddings[0].values) {
+      throw new Error('Invalid embedding response');
+    }
+    
+    return {
+      embedding: response.embeddings[0].values,
+      // tokenCount: countTokensResponse.totalTokens,
+      tokenCount: countTokens(text), // Use a simple token count function for now
+    };
   } catch (error) {
     console.error('Error generating embedding:', error);
     throw new Error('Failed to generate embedding');
@@ -34,12 +54,10 @@ export async function generateEmbedding(text: string): Promise<number[]> {
 /**
  * Generate search keywords from user query using Gemini Flash
  * @param query - User's search query
- * @returns Promise<string[]> - Array of optimized search keywords
+ * @returns Promise<{ keywords: string[]; tokenCount: number | undefined }> - Object containing array of optimized search keywords and token count
  */
-export async function generateSearchKeywords(query: string): Promise<string[]> {
+export async function generateSearchKeywords(query: string): Promise<{ keywords: string[]; tokenCount: number | undefined }> {
   try {
-    const model = genAI.getGenerativeModel({ model: MODELS.FLASH });
-    
     const prompt = `
 作為澳門法律專家，分析以下用戶查詢並生成最佳的搜索關鍵詞：
 
@@ -54,14 +72,25 @@ export async function generateSearchKeywords(query: string): Promise<string[]> {
 只返回關鍵詞，每行一個，不要其他解釋。
 `;
 
-    const result = await model.generateContent(prompt);
-    const response = result.response.text();
+    const response = await ai.models.generateContent({
+      model: MODELS.FLASH,
+      contents: prompt,
+    });
     
-    return response
+    if (!response.text) {
+      throw new Error('Invalid response from Gemini API');
+    }
+    
+    const keywords = response.text
       .split('\n')
       .map(keyword => keyword.trim())
       .filter(keyword => keyword.length > 0)
       .slice(0, 5);
+
+    return {
+      keywords: keywords,
+      tokenCount: response.usageMetadata?.totalTokenCount,
+    };
   } catch (error) {
     console.error('Error generating search keywords:', error);
     throw new Error('Failed to generate search keywords');
@@ -72,15 +101,13 @@ export async function generateSearchKeywords(query: string): Promise<string[]> {
  * Generate legal answer from search results using Gemini Flash
  * @param question - User's question
  * @param searchResults - Relevant document chunks from vector search
- * @returns Promise<string> - AI-generated legal answer
+ * @returns Promise<{ answer: string; tokenCount: number | undefined }> - AI-generated legal answer and token count
  */
 export async function generateLegalAnswer(
   question: string,
   searchResults: Array<{ content: string; metadata: any; similarity: number }>
-): Promise<string> {
+): Promise<{ answer: string; tokenCount: number | undefined }> {
   try {
-    const model = genAI.getGenerativeModel({ model: MODELS.FLASH });
-    
     const context = searchResults
       .map((result, index) => `
 文件 ${index + 1} (相關度: ${Math.round(result.similarity * 100)}%):
@@ -106,8 +133,19 @@ ${context}
 答案:
 `;
 
-    const result = await model.generateContent(prompt);
-    return result.response.text();
+    const response = await ai.models.generateContent({
+      model: MODELS.FLASH,
+      contents: prompt,
+    });
+    
+    if (!response.text) {
+      throw new Error('Invalid response from Gemini API');
+    }
+    
+    return {
+      answer: response.text,
+      tokenCount: response.usageMetadata?.totalTokenCount,
+    };
   } catch (error) {
     console.error('Error generating legal answer:', error);
     throw new Error('Failed to generate legal answer');
@@ -126,7 +164,6 @@ export async function generateConsultantResponse(
 ): Promise<string> {
   try {
     const modelName = useProModel ? MODELS.PRO : MODELS.FLASH;
-    const model = genAI.getGenerativeModel({ model: modelName });
     
     const conversationHistory = messages
       .map(msg => `${msg.role === 'user' ? '用戶' : 'AI法律顧問'}: ${msg.content}`)
@@ -150,8 +187,16 @@ ${conversationHistory}
 AI法律顧問回應:
 `;
 
-    const result = await model.generateContent(prompt);
-    return result.response.text();
+    const response = await ai.models.generateContent({
+      model: modelName,
+      contents: prompt,
+    });
+    
+    if (!response.text) {
+      throw new Error('Invalid response from Gemini API');
+    }
+    
+    return response.text;
   } catch (error) {
     console.error('Error generating consultant response:', error);
     throw new Error('Failed to generate consultant response');

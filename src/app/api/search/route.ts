@@ -19,35 +19,27 @@ import { supabase } from '@/lib/supabase';
 export async function POST(request: NextRequest) {
   try {
     // Validate request method
-    console.log('Validating request method...');
     const validateMethodResult = validateMethod(request, ['POST']);
-    console.log('validateMethod input:', ['POST'], 'output:', validateMethodResult);
     if (!validateMethodResult) {
       return createErrorResponse('不允許使用此方法', 405);
     }
 
     // Authenticate user
-    console.log('Authenticating user...');
     const authResult = await authenticateRequest(request);
-    console.log('authenticateRequest input:', request, 'output:', authResult);
     if (!authResult.success || !authResult.user) {
       return createErrorResponse(authResult.error || '未經授權', 401);
     }
     const user = authResult.user;
 
     // Check feature access
-    console.log('Checking feature access...');
     const hasFeatureAccessResult = hasFeatureAccess(user, 'search');
-    console.log('hasFeatureAccess input:', user, 'search', 'output:', hasFeatureAccessResult);
     if (!hasFeatureAccessResult) {
       return createErrorResponse('存取遭拒', 403);
     }
 
     // Parse request body
-    console.log('Parsing request body...');
     const body = await request.json();
     const { query } = body;
-    console.log('Parsed request body:', body);
 
     if (!query || typeof query !== 'string' || query.trim().length === 0) {
       return createErrorResponse('查詢是必需的');
@@ -58,12 +50,9 @@ export async function POST(request: NextRequest) {
     }
 
     // Estimate token usage
-    console.log('Estimating token usage...');
-    const estimatedTokens = countTokens(query) + 50; // Base cost for processing
-    console.log('countTokens input:', query, 'output:', countTokens(query), 'estimatedTokens:', estimatedTokens);
+    const estimatedTokens = countTokens(query) + 1000; // Base cost for processing
 
     // Check token availability
-    console.log('Checking token availability...');
     const hasTokensResult = hasTokens(user, estimatedTokens);
     console.log('hasTokens input:', user, estimatedTokens, 'output:', hasTokensResult);
     if (!hasTokensResult) {
@@ -73,12 +62,14 @@ export async function POST(request: NextRequest) {
     try {
       // Step 1: Generate search keywords using AI
       console.log('Generating search keywords...');
-      const keywords = await generateSearchKeywords(query);
+      const keywordsResult = await generateSearchKeywords(query);
+      const keywords = keywordsResult.keywords;
       console.log('generateSearchKeywords input:', query, 'output:', keywords);
       
       // Step 2: Generate embedding for the keywords
       console.log('Generating embedding for the keywords...');
-      const keywordsEmbedding = await generateEmbedding(keywords.join(' '));
+      const keywordsEmbeddingResult = await generateEmbedding(keywords.join(' '));
+      const keywordsEmbedding = keywordsEmbeddingResult.embedding;
       console.log('generateEmbedding input:', keywords.join(' '), 'output:', keywordsEmbedding);
       
       // Step 3: Search documents using vector similarity
@@ -88,10 +79,13 @@ export async function POST(request: NextRequest) {
       
       // Step 4: Calculate actual token usage
       console.log('Calculating actual token usage...');
-      const actualTokens = countTokens(query) + countTokens(keywords.join(' ')) + 30;
-      console.log('countTokens query input:', query, 'output:', countTokens(query));
-      console.log('countTokens keywords input:', keywords.join(' '), 'output:', countTokens(keywords.join(' ')));
-      console.log('actualTokens:', actualTokens);
+      // const queryTokens = await countTokens(query);
+      // const keywordsTokens = await countTokens(keywords.join(' '));
+      // const actualTokens = queryTokens + keywordsTokens + 30;
+      // console.log('countTokens query input:', query, 'output:', queryTokens);
+      // console.log('countTokens keywords input:', keywords.join(' '), 'output:', keywordsTokens);
+      // console.log('actualTokens:', actualTokens);
+      const actualTokens = (keywordsResult.tokenCount ?? 0) + (keywordsEmbeddingResult.tokenCount ?? 0);
       
       // Step 5: Update user token usage
       console.log('Updating user token usage...');
