@@ -307,7 +307,7 @@ function DashboardPage({ user }: { user: User }) {
         </Row>
 
         {/* Recent Activity */}
-        <Row className="mt-5">
+        {/* <Row className="mt-5">
           <Col>
             <h3>最近活動</h3>
             <Alert variant="info">
@@ -315,7 +315,7 @@ function DashboardPage({ user }: { user: User }) {
               您的搜索歷史和對話記錄將在這裡顯示
             </Alert>
           </Col>
-        </Row>
+        </Row> */}
       </Container>
     </Container>
   )
