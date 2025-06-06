@@ -13,7 +13,7 @@
     "type-check": "tsc --noEmit"
   },
   "dependencies": {
-    "@google/generative-ai": "^0.24.1",
+    "@google/genai": "^1.4.0",
     "@supabase/supabase-js": "^2.49.8",
     "bcryptjs": "^3.0.2",
     "bootstrap": "^5.3.6",
