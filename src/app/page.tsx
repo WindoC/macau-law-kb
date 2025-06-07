@@ -4,6 +4,8 @@ import { useEffect, useState } from 'react'
 import { Container, Row, Col, Card, Button, Alert } from 'react-bootstrap'
 import { supabase } from '@/lib/supabase'
 import type { User } from '@supabase/supabase-js'
+import CaptchaWidget from '@/components/CaptchaWidget'
+import { validateCaptchaToken, CAPTCHA_ERRORS } from '@/lib/captcha'
 
 /**
  * Main landing page component
@@ -52,7 +54,20 @@ export default function HomePage() {
  * Landing page for unauthenticated users
  */
 function LandingPage() {
+  const [captchaToken, setCaptchaToken] = useState<string | null>(null)
+  const [captchaError, setCaptchaError] = useState<string | null>(null)
+  const [loginLoading, setLoginLoading] = useState(false)
+
   const handleLogin = async (provider: 'google' | 'github') => {
+    // Validate CAPTCHA token before login
+    if (!validateCaptchaToken(captchaToken)) {
+      setCaptchaError(CAPTCHA_ERRORS.MISSING_TOKEN)
+      return
+    }
+
+    setLoginLoading(true)
+    setCaptchaError(null)
+
     try {
       const { error } = await supabase.auth.signInWithOAuth({
         provider,
@@ -64,11 +79,30 @@ function LandingPage() {
       if (error) {
         console.error('Login error:', error)
         alert('登入失敗，請稍後再試')
+        setCaptchaToken(null) // Reset CAPTCHA on error
       }
     } catch (error) {
       console.error('Login error:', error)
       alert('登入失敗，請稍後再試')
+      setCaptchaToken(null) // Reset CAPTCHA on error
+    } finally {
+      setLoginLoading(false)
     }
+  }
+
+  const handleCaptchaVerify = (token: string) => {
+    setCaptchaToken(token)
+    setCaptchaError(null)
+  }
+
+  const handleCaptchaError = () => {
+    setCaptchaToken(null)
+    setCaptchaError(CAPTCHA_ERRORS.VERIFICATION_FAILED)
+  }
+
+  const handleCaptchaExpire = () => {
+    setCaptchaToken(null)
+    setCaptchaError(CAPTCHA_ERRORS.EXPIRED_TOKEN)
   }
 
   return (
@@ -84,24 +118,66 @@ function LandingPage() {
               <p className="lead mb-4">
                 運用人工智能技術，為您提供專業的澳門法律搜索、問答和諮詢服務
               </p>
+
+
               <div className="d-grid gap-2 d-md-flex">
                 <Button
                   variant="light"
                   size="lg"
                   onClick={() => handleLogin('google')}
                   className="me-md-2"
+                  disabled={loginLoading || !captchaToken}
                 >
-                  <i className="fab fa-google me-2"></i>
-                  使用 Google 登入
+                  {loginLoading ? (
+                    <>
+                      <span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+                      登入中...
+                    </>
+                  ) : (
+                    <>
+                      <i className="fab fa-google me-2"></i>
+                      使用 Google 登入
+                    </>
+                  )}
                 </Button>
                 <Button
                   variant="outline-light"
                   size="lg"
                   onClick={() => handleLogin('github')}
+                  disabled={loginLoading || !captchaToken}
                 >
-                  <i className="fab fa-github me-2"></i>
-                  使用 GitHub 登入
+                  {loginLoading ? (
+                    <>
+                      <span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+                      登入中...
+                    </>
+                  ) : (
+                    <>
+                      <i className="fab fa-github me-2"></i>
+                      使用 GitHub 登入
+                    </>
+                  )}
                 </Button>
+              </div>
+
+              <br />
+              <label className="form-label">人機驗證</label>
+              {/* CAPTCHA Error Alert */}
+              {captchaError && (
+                <div className="alert alert-warning mb-3">
+                  <i className="fas fa-exclamation-triangle me-2"></i>
+                  {captchaError}
+                </div>
+              )}
+
+              {/* CAPTCHA Widget */}
+              <div className="mb-4">
+                <CaptchaWidget
+                  onVerify={handleCaptchaVerify}
+                  onError={handleCaptchaError}
+                  onExpire={handleCaptchaExpire}
+                  disabled={loginLoading}
+                />
               </div>
             </Col>
             <Col lg={6} className="text-center">
