@@ -10,12 +10,14 @@ import Navigation from '@/components/Navigation';
  * 允許用戶提問並獲得AI生成的法律建議
  */
 export default function QAPage() {
-  const [question, setQuestion] = useState('');
+  const [question, setQuestion] = useState(''); // This is the input field's question
+  const [submittedQuestion, setSubmittedQuestion] = useState(''); // This will store the submitted question
   const [answer, setAnswer] = useState('');
   const [sources, setSources] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [warning, setWarning] = useState<string | null>(null);
+  const [currentStep, setCurrentStep] = useState('');
   const [fragmentIdentifiers, setFragmentIdentifiers] = useState<{[key: string]: string}>({});
   const [expandedSources, setExpandedSources] = useState<{[key: string]: boolean}>({});
 
@@ -37,6 +39,12 @@ export default function QAPage() {
     extractFragmentIdentifiers();
   }, [sources]);
 
+  useEffect(() => {
+    if (loading) {
+      window.scrollTo(0, document.body.scrollHeight);
+    }
+  }, [answer, currentStep, loading]);
+
   const toggleSource = (id: string) => {
     setExpandedSources(prevState => ({
       ...prevState,
@@ -48,19 +56,21 @@ export default function QAPage() {
     e.preventDefault();
     if (!question.trim()) return;
 
+    setSubmittedQuestion(question); // Store the question before clearing the input field
     setLoading(true);
     setAnswer('');
     setSources([]);
     setError(null);
     setWarning(null);
+    setCurrentStep('');
 
     try {
-      // Get session token for authentication
       const { getSessionToken } = await import('@/lib/auth');
       const token = await getSessionToken();
       
       if (!token) {
         setError('請先登入');
+        setLoading(false);
         return;
       }
 
@@ -76,26 +86,63 @@ export default function QAPage() {
       if (!response.ok) {
         const errorData = await response.json();
         setError(errorData.error || '處理問題失敗');
+        setLoading(false);
         return;
       }
 
-      const data = await response.json();
-      setAnswer(data.answer || '');
-      setSources(data.sources || []);
-      
-      if (!data.answer) {
-        setWarning('無法為您的問題生成回答，請嘗試重新表述您的問題。');
+      if (!response.body) {
+        setError('無效的串流回應');
+        setLoading(false);
+        return;
+      }
+
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+
+      let buffer = '';
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n\n');
+        
+        // Keep the last partial line in the buffer
+        buffer = lines.pop() || '';
+
+        for (const line of lines) {
+          if (line.startsWith('data: ')) {
+            const dataStr = line.substring(6);
+            if (dataStr.trim()) {
+              try {
+                const data = JSON.parse(dataStr);
+                if (data.type === 'step') {
+                  setCurrentStep(data.content);
+                } else if (data.type === 'answer_chunk') {
+                  setAnswer(prev => prev + data.content);
+                } else if (data.type === 'sources') {
+                  setSources(data.content);
+                } else if (data.type === 'error') {
+                  setError(data.content);
+                }
+              } catch (e) {
+                console.error('Error parsing stream data:', e, 'Data string:', dataStr);
+              }
+            }
+          }
+        }
       }
     } catch (error) {
       console.error('問答錯誤:', error);
       setError(error instanceof Error ? error.message : '處理問題失敗，請稍後再試');
     } finally {
       setLoading(false);
+      setCurrentStep('');
     }
   };
 
   const copyQA = () => {
-    const content = `**問題:** ${question}\n\n**回答:** ${answer}\n\n**參考來源:**\n${sources.map((source, index) => `${index + 1}. ${source.metadata.law_id} - ${source.metadata.title} (第 ${source.metadata.loc.lines.from} 至 ${source.metadata.loc.lines.to} 行) (相關度: ${Math.round(source.similarity * 100)}%)`).join('\n')}`;
+    const content = `**問題:** ${submittedQuestion}\n\n**回答:** ${answer}\n\n**參考來源:**\n${sources.map((source, index) => `${index + 1}. ${source.metadata.law_id} - ${source.metadata.title} (第 ${source.metadata.loc.lines.from} 至 ${source.metadata.loc.lines.to} 行) (相關度: ${Math.round(source.similarity * 100)}%)`).join('\n')}`;
     navigator.clipboard.writeText(content);
     setWarning('已複製到剪貼板');
     setTimeout(() => setWarning(null), 3000);
@@ -173,7 +220,10 @@ export default function QAPage() {
               <div className="alert alert-info">
                 <div className="d-flex align-items-center">
                   <div className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></div>
-                  正在分析您的問題並生成專業回答...
+                  <div>
+                    {/* <div>正在分析您的問題並生成專業回答...</div> */}
+                    {currentStep && <div className="mt-1 small">{currentStep}</div>}
+                  </div>
                 </div>
               </div>
             )}
@@ -192,7 +242,7 @@ export default function QAPage() {
                       <h6 className="text-primary">您的問題:</h6>
                       <div className="text-muted">
                         <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                          {question}
+                          {submittedQuestion}
                         </ReactMarkdown>
                       </div>
                     </div>
@@ -280,7 +330,7 @@ export default function QAPage() {
               </div>
             )}
 
-            {!question && (
+            {!submittedQuestion && (
               <div className="card bg-light">
                 <div className="card-body text-center">
                   <i className="fas fa-question-circle fa-2x text-success mb-3"></i>
