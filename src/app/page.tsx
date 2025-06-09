@@ -1,11 +1,12 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { Container, Row, Col, Card, Button, Alert } from 'react-bootstrap'
+import { Container, Row, Col, Card, Button, Alert, Accordion } from 'react-bootstrap'
 import { supabase } from '@/lib/supabase'
 import type { User } from '@supabase/supabase-js'
 import CaptchaWidget from '@/components/CaptchaWidget'
 import { validateCaptchaToken, CAPTCHA_ERRORS } from '@/lib/captcha'
+import LegalInformationSection from '@/components/LegalInformationSection'
 
 /**
  * Main landing page component
@@ -267,6 +268,9 @@ function LandingPage() {
           </Row>
         </Container>
       </section>
+
+      {/* Legal Information Section */}
+      <LegalInformationSection />
     </Container>
   )
 }
@@ -289,7 +293,7 @@ function DashboardPage({ user }: { user: User }) {
   }
 
   return (
-    <Container fluid>
+    <Container fluid className="min-vh-100 bg-white">
       {/* Navigation */}
       <nav className="navbar navbar-expand-lg navbar-dark bg-primary">
         <Container>
@@ -393,6 +397,8 @@ function DashboardPage({ user }: { user: User }) {
           </Col>
         </Row> */}
       </Container>
+      {/* Legal Information Section */}
+      <LegalInformationSection />
     </Container>
   )
 }
