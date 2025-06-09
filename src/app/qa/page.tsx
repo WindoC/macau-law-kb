@@ -39,11 +39,11 @@ export default function QAPage() {
     extractFragmentIdentifiers();
   }, [sources]);
 
-  useEffect(() => {
-    if (loading) {
-      window.scrollTo(0, document.body.scrollHeight);
-    }
-  }, [answer, currentStep, loading]);
+  // useEffect(() => {
+  //   if (loading) {
+  //     window.scrollTo(0, document.body.scrollHeight);
+  //   }
+  // }, [answer, currentStep, loading]);
 
   const toggleSource = (id: string) => {
     setExpandedSources(prevState => ({
@@ -221,8 +221,11 @@ export default function QAPage() {
                 <div className="d-flex align-items-center">
                   <div className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></div>
                   <div>
-                    {/* <div>正在分析您的問題並生成專業回答...</div> */}
-                    {currentStep && <div className="mt-1 small">{currentStep}</div>}
+                    {currentStep ? (
+                      <div className="mt-1 small">{currentStep}</div>
+                    ) : (
+                      <div>正在分析您的問題並生成專業回答...</div>
+                    )}
                   </div>
                 </div>
               </div>
