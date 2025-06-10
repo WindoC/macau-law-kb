@@ -1,6 +1,8 @@
 'use client';
 
 import { useState } from 'react';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import Navigation from '@/components/Navigation';
 
 interface Message {
@@ -21,6 +23,8 @@ export default function ConsultantPage() {
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [warning, setWarning] = useState<string | null>(null);
+  const [currentStep, setCurrentStep] = useState('');
+  const [streamingResponse, setStreamingResponse] = useState('');
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -34,10 +38,13 @@ export default function ConsultantPage() {
     };
 
     setMessages(prev => [...prev, userMessage]);
+    const currentInput = input.trim();
     setInput('');
     setLoading(true);
     setError(null);
     setWarning(null);
+    setCurrentStep('');
+    setStreamingResponse('');
 
     try {
       // Get session token for authentication
@@ -46,8 +53,15 @@ export default function ConsultantPage() {
       
       if (!token) {
         setError('請先登入');
+        setLoading(false);
         return;
       }
+
+      const requestBody = {
+        message: currentInput,
+        conversationId: conversationId,
+        useProModel: false // Can be made configurable
+      };
 
       const response = await fetch('/api/consultant', {
         method: 'POST',
@@ -55,43 +69,87 @@ export default function ConsultantPage() {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`,
         },
-        body: JSON.stringify({ 
-          message: input.trim(),
-          conversation_id: conversationId,
-          conversation_history: messages
-        }),
+        body: JSON.stringify(requestBody),
       });
 
       if (!response.ok) {
         const errorData = await response.json();
         setError(errorData.error || '處理訊息失敗');
+        setLoading(false);
         return;
       }
 
-      const data = await response.json();
-      
-      // Update conversation ID if this is a new conversation
-      if (data.conversation_id && !conversationId) {
-        setConversationId(data.conversation_id);
+      if (!response.body) {
+        setError('無效的串流回應');
+        setLoading(false);
+        return;
       }
 
-      const assistantMessage: Message = {
-        id: (Date.now() + 1).toString(),
-        role: 'assistant',
-        content: data.response || '',
-        timestamp: new Date()
-      };
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
 
-      setMessages(prev => [...prev, assistantMessage]);
-      
-      if (!data.response) {
-        setWarning('AI顧問無法生成回應，請嘗試重新表述您的問題。');
+      let buffer = '';
+      let finalResponse = '';
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n\n');
+        
+        // Keep the last partial line in the buffer
+        buffer = lines.pop() || '';
+
+        for (const line of lines) {
+          if (line.startsWith('data: ')) {
+            const dataStr = line.substring(6);
+            if (dataStr.trim()) {
+              try {
+                const data = JSON.parse(dataStr);
+                switch (data.type) {
+                  case 'step':
+                    setCurrentStep(data.content);
+                    break;
+                  case 'response_chunk':
+                    finalResponse += data.content;
+                    setStreamingResponse(finalResponse);
+                    break;
+                  case 'completion':
+                    if (data.content.conversationId && !conversationId) {
+                      setConversationId(data.content.conversationId);
+                    }
+                    break;
+                  case 'error':
+                    setError(data.content);
+                    break;
+                }
+              } catch (e) {
+                console.error('Error parsing stream data:', e);
+              }
+            }
+          }
+        }
       }
+
+      // Add final assistant message
+      if (finalResponse) {
+        const assistantMessage: Message = {
+          id: (Date.now() + 1).toString(),
+          role: 'assistant',
+          content: finalResponse,
+          timestamp: new Date()
+        };
+        setMessages(prev => [...prev, assistantMessage]);
+      }
+
     } catch (error) {
       console.error('顧問錯誤:', error);
       setError(error instanceof Error ? error.message : '處理訊息失敗，請稍後再試');
     } finally {
       setLoading(false);
+      setCurrentStep('');
+      setStreamingResponse('');
     }
   };
 
@@ -108,6 +166,8 @@ export default function ConsultantPage() {
     setInput('');
     setError(null);
     setWarning(null);
+    setCurrentStep('');
+    setStreamingResponse('');
   };
 
   const copyConversation = () => {
@@ -218,13 +278,45 @@ export default function ConsultantPage() {
                                       {message.timestamp.toLocaleTimeString()}
                                     </span>
                                   </div>
-                                  <div style={{whiteSpace: 'pre-wrap'}}>{message.content}</div>
+                                  <div style={{whiteSpace: 'pre-wrap'}}>
+                                    <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                                      {message.content}
+                                    </ReactMarkdown>
+                                  </div>
                                 </div>
                               </div>
                             </div>
                           </div>
                         </div>
                       ))}
+                      
+                      {/* Streaming response */}
+                      {loading && streamingResponse && (
+                        <div className="mb-3 d-flex justify-content-start">
+                          <div className="card bg-light" style={{maxWidth: '80%'}}>
+                            <div className="card-body py-2 px-3">
+                              <div className="d-flex align-items-start">
+                                <div className="bg-warning text-white rounded-circle d-inline-flex align-items-center justify-content-center me-2" style={{width: '30px', height: '30px', fontSize: '12px'}}>
+                                  <i className="fas fa-robot"></i>
+                                </div>
+                                <div className="flex-grow-1">
+                                  <div className="small mb-1">
+                                    <strong>AI顧問</strong>
+                                    <span className="ms-2 opacity-75">正在回應...</span>
+                                  </div>
+                                  <div style={{whiteSpace: 'pre-wrap'}}>
+                                    <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                                      {streamingResponse}
+                                    </ReactMarkdown>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                      
+                      {/* Loading indicator */}
                       {loading && (
                         <div className="mb-3 d-flex justify-content-start">
                           <div className="card bg-light" style={{maxWidth: '80%'}}>
@@ -235,7 +327,7 @@ export default function ConsultantPage() {
                                 </div>
                                 <div>
                                   <div className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></div>
-                                  AI顧問正在思考...
+                                  {currentStep || 'AI顧問正在思考...'}
                                 </div>
                               </div>
                             </div>
@@ -267,7 +359,10 @@ export default function ConsultantPage() {
                       {loading ? (
                         <span className="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
                       ) : (
-                        <i className="fas fa-paper-plane"></i>
+                        <>
+                          <i className="fas fa-paper-plane me-1"></i>
+                          發送
+                        </>
                       )}
                     </button>
                   </div>
