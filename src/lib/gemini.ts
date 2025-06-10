@@ -15,6 +15,21 @@ const MODELS = {
   EMBEDDING: 'gemini-embedding-exp-03-07'
 } as const;
 
+// System instruction for legal consultant
+const LEGAL_CONSULTANT_INSTRUCTION = `
+你是專業的澳門法律顧問AI助手。請遵循以下原則：
+
+1. 提供專業、準確的澳門法律建議
+2. 使用繁體中文回答
+3. 保持對話的連貫性和上下文理解
+4. 當需要更詳細的法律資訊時，主動詢問相關細節
+5. 引用相關的澳門法律條文和案例
+6. 保持專業但友善的語調
+7. 如果涉及複雜法律問題，建議尋求專業律師協助
+8. 基於對話歷史提供連貫的建議
+9. 如果信息不足，請說明限制並要求更多細節
+`;
+
 /**
  * Generate embeddings for text using Gemini embedding model
  * @param text - Text to generate embeddings for
@@ -211,4 +226,45 @@ AI法律顧問回應:
 export function countTokens(text: string): number {
   // Rough estimation: 1 token ≈ 4 characters for Chinese text
   return Math.ceil(text.length / 4);
+}
+
+/**
+ * Generate consultant chat response using direct generateContent method
+ * @param messages - Conversation history
+ * @param useProModel - Whether to use Pro model
+ * @returns Promise<{ text: string; totalTokenCount: number }> - AI response and token count
+ */
+export async function generateConsultantChatResponse(
+  messages: Array<{ role: 'user' | 'model'; content: string }>,
+  useProModel: boolean = false
+): Promise<{ text: string; totalTokenCount: number }> {
+  try {
+    const modelName = useProModel ? MODELS.PRO : MODELS.FLASH;
+    
+    // Format messages for Gemini API
+    const contents = messages.map(msg => ({
+      role: msg.role,
+      parts: [{ text: msg.content }]
+    }));
+
+    const response = await ai.models.generateContent({
+      model: modelName,
+      contents: contents,
+      config: {
+        systemInstruction: LEGAL_CONSULTANT_INSTRUCTION
+      }
+    });
+    
+    if (!response.text) {
+      throw new Error('Invalid response from Gemini API');
+    }
+    
+    return {
+      text: response.text,
+      totalTokenCount: response.usageMetadata?.totalTokenCount || 0
+    };
+  } catch (error) {
+    console.error('Error generating consultant chat response:', error);
+    throw new Error('Failed to generate consultant response');
+  }
 }
