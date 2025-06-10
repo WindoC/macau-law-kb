@@ -60,6 +60,7 @@ export default function ConsultantPage() {
       const requestBody = {
         message: currentInput,
         conversationId: conversationId,
+        conversationHistory: messages, // Send full conversation history
         useProModel: false // Can be made configurable
       };
 

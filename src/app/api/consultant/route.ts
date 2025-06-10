@@ -49,8 +49,8 @@ export async function POST(request: NextRequest) {
 
     console.log('Parsing request body...');
     const body = await request.json();
-    const { message, conversationId, useProModel = false } = body;
-    console.log('Request body:', body);
+    const { message, conversationId, conversationHistory = [], useProModel = false } = body;
+    console.log('Request body:', { message, conversationId, conversationHistory: conversationHistory?.length || 0, useProModel });
 
     if (!message || typeof message !== 'string' || message.trim().length === 0) {
       return createErrorResponse('訊息是必需的');
@@ -84,28 +84,22 @@ export async function POST(request: NextRequest) {
         };
 
         let totalTokenUsage = 0;
-        let conversationHistory: Array<{ role: 'user' | 'assistant'; content: string; timestamp: string }> = [];
+        let fullConversationHistory: Array<{ role: 'user' | 'assistant'; content: string; timestamp: string }> = [];
 
         try {
           send({ type: 'step', content: '正在處理輸入...' });
 
-          // Get conversation history
-          if (conversationId) {
-            console.log('Getting conversation history...');
-            const conversation = await getConversation(conversationId, user.id);
-            console.log('getConversation input:', conversationId, user.id);
-            console.log('getConversation output:', conversation);
-            if (conversation) {
-              conversationHistory = conversation.messages.map((msg: any) => ({
-                ...msg,
-                role: msg.role === 'assistant' ? 'model' : msg.role
-              }));
-            }
+          // Use conversation history from frontend (client-side memory)
+          if (conversationHistory && Array.isArray(conversationHistory) && conversationHistory.length > 0) {
+            console.log('Using conversation history from frontend:', conversationHistory.length, 'messages');
+            fullConversationHistory = [...conversationHistory];
+          } else {
+            console.log('No conversation history provided, starting fresh conversation');
           }
 
           // Add current user message
           const currentTimestamp = new Date().toISOString();
-          conversationHistory.push({
+          fullConversationHistory.push({
             role: 'user',
             content: message,
             timestamp: currentTimestamp
@@ -114,7 +108,7 @@ export async function POST(request: NextRequest) {
           send({ type: 'step', content: '正在生成回應...' });
 
           // Generate AI response using simplified method
-          const chatMessages = conversationHistory.map(msg => ({
+          const chatMessages = fullConversationHistory.map((msg: { role: 'user' | 'assistant'; content: string; timestamp: string }) => ({
             role: (msg.role === 'assistant' ? 'model' : msg.role) as 'user' | 'model',
             content: msg.content
           }));
@@ -129,7 +123,7 @@ export async function POST(request: NextRequest) {
           send({ type: 'response_chunk', content: response.text });
 
           // Add AI response to history
-          conversationHistory.push({
+          fullConversationHistory.push({
             role: 'assistant',
             content: response.text,
             timestamp: new Date().toISOString()
@@ -143,15 +137,22 @@ export async function POST(request: NextRequest) {
           await updateTokenUsage(user.id, finalTokens);
           console.log('updateTokenUsage input:', user.id, finalTokens);
 
-          console.log('Saving conversation...');
-          const savedConversationId = await saveConversation(
-            user.id,
-            conversationId,
-            conversationHistory,
-            conversationHistory.length === 2 ? `諮詢: ${message.substring(0, 50)}...` : undefined
-          );
-          console.log('saveConversation input:', user.id, conversationId, conversationHistory);
-          console.log('saveConversation output:', savedConversationId);
+          // Skip conversation saving for Phase 1 - table doesn't exist yet
+          console.log('Skipping conversation saving - table not created yet');
+          let savedConversationId = conversationId || 'temp-' + Date.now();
+          
+          // TODO: Create conversations table and re-enable this feature
+          // try {
+          //   savedConversationId = await saveConversation(
+          //     user.id,
+          //     conversationId,
+          //     fullConversationHistory,
+          //     fullConversationHistory.length === 2 ? `諮詢: ${message.substring(0, 50)}...` : undefined
+          //   );
+          // } catch (saveError) {
+          //   console.error('Failed to save conversation:', saveError);
+          //   savedConversationId = conversationId || 'temp-' + Date.now();
+          // }
 
           console.log('Logging API usage...');
           await logAPIUsage(user.id, 'consultant', finalTokens);
