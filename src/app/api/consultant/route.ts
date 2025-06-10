@@ -9,145 +9,179 @@ import {
   validateMethod,
   logAPIUsage
 } from '@/lib/auth';
-import { generateConsultantResponse, countTokens } from '@/lib/gemini';
+import { generateConsultantChatResponse, countTokens } from '@/lib/gemini';
 import { saveConversation, getConversation, updateTokenUsage } from '@/lib/database';
 import { supabase } from '@/lib/supabase';
 
+export const runtime = 'edge';
+
 /**
- * Legal Consultant API endpoint
- * Handles AI-powered legal consultation with conversation history
+ * Legal Consultant API endpoint with streaming
+ * Handles AI-powered legal consultation with real-time progress updates
  */
 export async function POST(request: NextRequest) {
-  console.log('POST request received at /api/consultant'); // Debug log
+  console.log('POST request received at /api/consultant');
   try {
-    // Validate request method
-    if (!validateMethod(request, ['POST'])) {
-      console.log('Method not allowed'); // Debug log
+    console.log('Validating method...');
+    const validateMethodResult = validateMethod(request, ['POST']);
+    console.log('validateMethod input:', request.method);
+    console.log('validateMethod output:', validateMethodResult);
+    if (!validateMethodResult) {
       return createErrorResponse('不允許使用此方法', 405);
     }
 
-    // Authenticate user
+    console.log('Authenticating request...');
     const authResult = await authenticateRequest(request);
+    console.log('authenticateRequest input:', request);
+    console.log('authenticateRequest output:', authResult);
     if (!authResult.success || !authResult.user) {
-      console.log('Authentication failed'); // Debug log
       return createErrorResponse(authResult.error || '未經授權', 401);
     }
     const user = authResult.user;
-    console.log('User authenticated:', user.id); // Debug log
 
-    // Check feature access
-    if (!hasFeatureAccess(user, 'consultant')) {
-      console.log('Feature access denied'); // Debug log
+    console.log('Checking feature access...');
+    const hasFeatureAccessResult = hasFeatureAccess(user, 'consultant');
+    console.log('hasFeatureAccess input:', user, 'consultant');
+    console.log('hasFeatureAccess output:', hasFeatureAccessResult);
+    if (!hasFeatureAccessResult) {
       return createErrorResponse('存取遭拒 - 顧問功能需要付費訂閱', 403);
     }
 
-    // Parse request body
+    console.log('Parsing request body...');
     const body = await request.json();
     const { message, conversationId, useProModel = false } = body;
-    console.log('Request body:', body); // Debug log
+    console.log('Request body:', body);
 
     if (!message || typeof message !== 'string' || message.trim().length === 0) {
-      console.log('Message is required'); // Debug log
       return createErrorResponse('訊息是必需的');
     }
-
-    if (message.length > 3000) {
-      console.log('Message too long'); // Debug log
-      return createErrorResponse('訊息太長 (最多 3000 個字元)');
+    if (message.length > 2000) {
+      return createErrorResponse('訊息太長 (最多 2000 個字元)');
     }
 
-    // Check if user can use Pro model
+    console.log('Checking Pro model access...');
     if (useProModel && !canUseProModel(user)) {
-      console.log('Pro model access denied'); // Debug log
       return createErrorResponse('Pro 模型存取需要 VIP 訂閱', 403);
     }
 
-    // Estimate token usage (Pro model costs 10x more)
-    const baseTokens = countTokens(message) + 300;
-    const estimatedTokens = useProModel ? baseTokens * 10 : baseTokens;
-
-    // Check token availability
-    if (!hasTokens(user, estimatedTokens)) {
-      console.log('Not enough tokens'); // Debug log
+    console.log('Estimating tokens...');
+    const estimatedTokens = countTokens(message) + 5000; // Reduced estimate for simple chat
+    console.log('countTokens input:', message);
+    console.log('countTokens output:', estimatedTokens);
+    const hasTokensResult = hasTokens(user, estimatedTokens);
+    console.log('hasTokens input:', user, estimatedTokens);
+    console.log('hasTokens output:', hasTokensResult);
+    if (!hasTokensResult) {
       return createErrorResponse('代幣不足', 402);
     }
 
-    try {
-      // Step 1: Get conversation history if conversationId provided
-      let conversationHistory: Array<{ role: 'user' | 'assistant'; content: string; timestamp: string }> = [];
-      
-      if (conversationId) {
-        console.log('Conversation ID provided:', conversationId); // Debug log
-        const conversation = await getConversation(conversationId, user.id);
-        if (conversation) {
-          conversationHistory = conversation.messages;
-          console.log('Conversation history retrieved:', conversationHistory.length); // Debug log
-        } else {
-          console.log('Conversation not found'); // Debug log
+    const encoder = new TextEncoder();
+
+    const stream = new ReadableStream({
+      async start(controller) {
+        const send = (data: any) => {
+          controller.enqueue(encoder.encode(`data: ${JSON.stringify(data)}\n\n`));
+        };
+
+        let totalTokenUsage = 0;
+        let conversationHistory: Array<{ role: 'user' | 'assistant'; content: string; timestamp: string }> = [];
+
+        try {
+          send({ type: 'step', content: '正在處理輸入...' });
+
+          // Get conversation history
+          if (conversationId) {
+            console.log('Getting conversation history...');
+            const conversation = await getConversation(conversationId, user.id);
+            console.log('getConversation input:', conversationId, user.id);
+            console.log('getConversation output:', conversation);
+            if (conversation) {
+              conversationHistory = conversation.messages.map((msg: any) => ({
+                ...msg,
+                role: msg.role === 'assistant' ? 'model' : msg.role
+              }));
+            }
+          }
+
+          // Add current user message
+          const currentTimestamp = new Date().toISOString();
+          conversationHistory.push({
+            role: 'user',
+            content: message,
+            timestamp: currentTimestamp
+          });
+
+          send({ type: 'step', content: '正在生成回應...' });
+
+          // Generate AI response using simplified method
+          const chatMessages = conversationHistory.map(msg => ({
+            role: (msg.role === 'assistant' ? 'model' : msg.role) as 'user' | 'model',
+            content: msg.content
+          }));
+
+          console.log('Generating consultant chat response...');
+          const response = await generateConsultantChatResponse(chatMessages, useProModel);
+          console.log('generateConsultantChatResponse input:', chatMessages, useProModel);
+          console.log('generateConsultantChatResponse output:', response);
+          totalTokenUsage = response.totalTokenCount;
+
+          // Send response
+          send({ type: 'response_chunk', content: response.text });
+
+          // Add AI response to history
+          conversationHistory.push({
+            role: 'assistant',
+            content: response.text,
+            timestamp: new Date().toISOString()
+          });
+
+          // Calculate final tokens (Pro model costs 10x)
+          const finalTokens = useProModel ? totalTokenUsage * 10 : totalTokenUsage;
+          
+          // Update token usage and save conversation
+          console.log('Updating token usage...');
+          await updateTokenUsage(user.id, finalTokens);
+          console.log('updateTokenUsage input:', user.id, finalTokens);
+
+          console.log('Saving conversation...');
+          const savedConversationId = await saveConversation(
+            user.id,
+            conversationId,
+            conversationHistory,
+            conversationHistory.length === 2 ? `諮詢: ${message.substring(0, 50)}...` : undefined
+          );
+          console.log('saveConversation input:', user.id, conversationId, conversationHistory);
+          console.log('saveConversation output:', savedConversationId);
+
+          console.log('Logging API usage...');
+          await logAPIUsage(user.id, 'consultant', finalTokens);
+          console.log('logAPIUsage input:', user.id, 'consultant', finalTokens);
+
+          send({
+            type: 'completion',
+            content: {
+              conversationId: savedConversationId,
+              tokensUsed: finalTokens,
+              remainingTokens: (user.remaining_tokens || 0) - finalTokens
+            }
+          });
+
+        } catch (e) {
+          console.error('Streaming error:', e);
+          send({ type: 'error', content: 'AI 處理失敗' });
+        } finally {
+          controller.close();
         }
-      }
+      },
+    });
 
-      // Step 2: Add current user message to history
-      const currentTimestamp = new Date().toISOString();
-      conversationHistory.push({
-        role: 'user',
-        content: message,
-        timestamp: currentTimestamp
-      });
-
-      // Step 3: Generate AI response
-      const aiResponse = await generateConsultantResponse(
-        conversationHistory.map(msg => ({ role: msg.role, content: msg.content })),
-        useProModel
-      );
-      console.log('AI response generated'); // Debug log
-
-      // Step 4: Add AI response to history
-      conversationHistory.push({
-        role: 'assistant',
-        content: aiResponse,
-        timestamp: new Date().toISOString()
-      });
-
-      // Step 5: Calculate actual token usage
-      const conversationTokens = conversationHistory.reduce((sum, msg) => sum + countTokens(msg.content), 0);
-      const actualTokens = Math.min(conversationTokens, useProModel ? 5000 : 1500) + (useProModel ? 100 : 50);
-      const finalTokens = useProModel ? actualTokens * 10 : actualTokens;
-
-      // Step 6: Update user token usage
-      await updateTokenUsage(user.id, finalTokens);
-      console.log('Token usage updated:', finalTokens); // Debug log
-
-      // Step 7: Save conversation
-      const savedConversationId = await saveConversation(
-        user.id,
-        conversationId,
-        conversationHistory,
-        conversationHistory.length === 2 ? `諮詢: ${message.substring(0, 50)}...` : undefined
-      );
-      console.log('Conversation saved:', savedConversationId); // Debug log
-
-      // Step 8: Log API usage
-      await logAPIUsage(user.id, 'consultant', finalTokens);
-      console.log('API usage logged'); // Debug log
-
-      // Format response
-      const response = {
-        message: aiResponse,
-        conversationId: savedConversationId,
-        tokens_used: finalTokens,
-        remaining_tokens: (user.remaining_tokens || 0) - finalTokens,
-        model_used: useProModel ? 'gemini-pro' : 'gemini-flash',
-      };
-      console.log('Response:', response); // Debug log
-
-      return createSuccessResponse(response);
-
-    } catch (aiError) {
-      console.error('AI processing error:', aiError);
-      return createErrorResponse('AI 處理失敗', 500);
-    }
-
+    return new Response(stream, {
+      headers: {
+        'Content-Type': 'text/event-stream',
+        'Cache-Control': 'no-cache',
+        'Connection': 'keep-alive',
+      },
+    });
   } catch (error) {
     console.error('Consultant API error:', error);
     return createErrorResponse('內部伺服器錯誤', 500);
