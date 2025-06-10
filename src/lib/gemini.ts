@@ -241,7 +241,9 @@ export async function generateConsultantChatResponse(
   try {
     const modelName = useProModel ? MODELS.PRO : MODELS.FLASH;
     
-    // Format messages for Gemini API
+    console.log(`Generating consultant response with ${messages.length} messages in conversation history`);
+    
+    // Format messages for Gemini API - following the example pattern
     const contents = messages.map(msg => ({
       role: msg.role,
       parts: [{ text: msg.content }]
@@ -258,6 +260,8 @@ export async function generateConsultantChatResponse(
     if (!response.text) {
       throw new Error('Invalid response from Gemini API');
     }
+    
+    console.log(`Generated response with ${response.usageMetadata?.totalTokenCount || 0} tokens`);
     
     return {
       text: response.text,
