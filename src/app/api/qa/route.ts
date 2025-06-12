@@ -71,6 +71,7 @@ export async function POST(request: NextRequest) {
         try {
           send({ type: 'step', content: '正在生成搜尋關鍵字...' });
           const keywordsResult = await generateSearchKeywords(question);
+          console.log('generateSearchKeywords output:', keywordsResult.keywords);
 
           send({ type: 'step', content: '正在生成嵌入向量以用於搜尋...' });
           const keywordsEmbeddingResult = await generateEmbedding(keywordsResult.keywords.join(' '));
