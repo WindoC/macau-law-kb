@@ -70,12 +70,12 @@ export async function POST(request: NextRequest) {
       console.log('Generating embedding for the keywords...');
       const keywordsEmbeddingResult = await generateEmbedding(keywords.join(' '));
       const keywordsEmbedding = keywordsEmbeddingResult.embedding;
-      console.log('generateEmbedding input:', keywords.join(' '), 'output:', keywordsEmbedding);
+      // console.log('generateEmbedding input:', keywords.join(' '), 'output:', keywordsEmbedding);
       
       // Step 3: Search documents using vector similarity
       console.log('Searching documents...');
       const searchResults = await searchDocuments(keywordsEmbedding, 5);
-      console.log('searchDocuments input:', keywordsEmbedding, 5, 'output:', searchResults);
+      // console.log('searchDocuments input:', keywordsEmbedding, 5, 'output:', searchResults);
       
       // Step 4: Calculate actual token usage
       console.log('Calculating actual token usage...');
