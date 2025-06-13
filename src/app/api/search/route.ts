@@ -68,18 +68,18 @@ export async function POST(request: NextRequest) {
       console.log('generateSearchKeywords input:', query, 'output:', keywords);
       
       // Step 2: Generate embedding for the keywords
-      console.log('Generating embedding for the keywords...');
+      // console.log('Generating embedding for the keywords...');
       const keywordsEmbeddingResult = await generateEmbedding(keywords.join(' '));
       const keywordsEmbedding = keywordsEmbeddingResult.embedding;
       // console.log('generateEmbedding input:', keywords.join(' '), 'output:', keywordsEmbedding);
       
       // Step 3: Search documents using vector similarity
-      console.log('Searching documents...');
+      // console.log('Searching documents...');
       const searchResults = await searchDocuments(keywordsEmbedding, 5);
       // console.log('searchDocuments input:', keywordsEmbedding, 5, 'output:', searchResults);
       
       // Step 4: Calculate actual token usage
-      console.log('Calculating actual token usage...');
+      // console.log('Calculating actual token usage...');
       // const queryTokens = await countTokens(query);
       // const keywordsTokens = await countTokens(keywords.join(' '));
       // const actualTokens = queryTokens + keywordsTokens + 30;
@@ -89,20 +89,20 @@ export async function POST(request: NextRequest) {
       const actualTokens = (keywordsResult.tokenCount ?? 0) + (keywordsEmbeddingResult.tokenCount ?? 0);
       
       // Step 5: Update user token usage
-      console.log('Updating user token usage...');
+      // console.log('Updating user token usage...');
       await updateTokenUsage(user.id, actualTokens);
-      console.log('updateTokenUsage input:', user.id, actualTokens);
+      // console.log('updateTokenUsage input:', user.id, actualTokens);
       
       // Step 6: Save search history
-      console.log('Saving search history...');
+      // console.log('Saving search history...');
       const documentIds = searchResults.map(result => result.id);
       await saveSearchHistory(user.id, query, documentIds, actualTokens);
-      console.log('saveSearchHistory input:', user.id, query, documentIds);
+      // console.log('saveSearchHistory input:', user.id, query, documentIds);
       
       // Step 7: Log API usage
-      console.log('Logging API usage...');
+      // console.log('Logging API usage...');
       await logAPIUsage(user.id, 'search', actualTokens);
-      console.log('logAPIUsage input:', user.id, 'search', actualTokens);
+      // console.log('logAPIUsage input:', user.id, 'search', actualTokens);
 
       // Format response
       const response = {
