@@ -22,37 +22,37 @@ export const runtime = 'nodejs';
  * Handles AI-powered legal consultation with real-time progress updates
  */
 export async function POST(request: NextRequest) {
-  console.log('POST request received at /api/consultant');
+  // console.log('POST request received at /api/consultant');
   try {
-    console.log('Validating method...');
+    // console.log('Validating method...');
     const validateMethodResult = validateMethod(request, ['POST']);
-    console.log('validateMethod input:', request.method);
-    console.log('validateMethod output:', validateMethodResult);
+    // console.log('validateMethod input:', request.method);
+    // console.log('validateMethod output:', validateMethodResult);
     if (!validateMethodResult) {
       return createErrorResponse('不允許使用此方法', 405);
     }
 
-    console.log('Authenticating request...');
+    // console.log('Authenticating request...');
     const authResult = await authenticateRequest(request);
-    console.log('authenticateRequest input:', request);
-    console.log('authenticateRequest output:', authResult);
+    // console.log('authenticateRequest input:', request);
+    // console.log('authenticateRequest output:', authResult);
     if (!authResult.success || !authResult.user) {
       return createErrorResponse(authResult.error || '未經授權', 401);
     }
     const user = authResult.user;
 
-    console.log('Checking feature access...');
+    // console.log('Checking feature access...');
     const hasFeatureAccessResult = hasFeatureAccess(user, 'consultant');
-    console.log('hasFeatureAccess input:', user, 'consultant');
-    console.log('hasFeatureAccess output:', hasFeatureAccessResult);
+    // console.log('hasFeatureAccess input:', user, 'consultant');
+    // console.log('hasFeatureAccess output:', hasFeatureAccessResult);
     if (!hasFeatureAccessResult) {
       return createErrorResponse('存取遭拒 - 顧問功能需要付費訂閱', 403);
     }
 
-    console.log('Parsing request body...');
+    // console.log('Parsing request body...');
     const body = await request.json();
     const { message, conversationId, conversationHistory = [], useProModel = false } = body;
-    console.log('Request body:', { message, conversationId, conversationHistory: conversationHistory?.length || 0, useProModel });
+    // console.log('Request body:', { message, conversationId, conversationHistory: conversationHistory?.length || 0, useProModel });
 
     if (!message || typeof message !== 'string' || message.trim().length === 0) {
       return createErrorResponse('訊息是必需的');
@@ -61,18 +61,18 @@ export async function POST(request: NextRequest) {
       return createErrorResponse('訊息太長 (最多 2000 個字元)');
     }
 
-    console.log('Checking Pro model access...');
+    // console.log('Checking Pro model access...');
     if (useProModel && !canUseProModel(user)) {
       return createErrorResponse('Pro 模型存取需要 VIP 訂閱', 403);
     }
 
-    console.log('Estimating tokens...');
+    // console.log('Estimating tokens...');
     const estimatedTokens = countTokens(message) + 5000; // Reduced estimate for simple chat
-    console.log('countTokens input:', message);
-    console.log('countTokens output:', estimatedTokens);
+    // console.log('countTokens input:', message);
+    // console.log('countTokens output:', estimatedTokens);
     const hasTokensResult = hasTokens(user, estimatedTokens);
-    console.log('hasTokens input:', user, estimatedTokens);
-    console.log('hasTokens output:', hasTokensResult);
+    // console.log('hasTokens input:', user, estimatedTokens);
+    // console.log('hasTokens output:', hasTokensResult);
     if (!hasTokensResult) {
       return createErrorResponse('代幣不足', 402);
     }
@@ -93,10 +93,10 @@ export async function POST(request: NextRequest) {
 
           // Use conversation history from frontend (client-side memory)
           if (conversationHistory && Array.isArray(conversationHistory) && conversationHistory.length > 0) {
-            console.log('Using conversation history from frontend:', conversationHistory.length, 'messages');
+            // console.log('Using conversation history from frontend:', conversationHistory.length, 'messages');
             fullConversationHistory = [...conversationHistory];
           } else {
-            console.log('No conversation history provided, starting fresh conversation');
+            // console.log('No conversation history provided, starting fresh conversation');
           }
 
           // Add current user message
@@ -115,10 +115,10 @@ export async function POST(request: NextRequest) {
             parts: [{ text: msg.content }]
           }));
 
-          console.log('Generating consultant chat response...');
+          // console.log('Generating consultant chat response...');
           let response = await generateConsultantChatResponse(contents, useProModel) ;
-          console.log('generateConsultantChatResponse input:', contents, useProModel);
-          console.log('generateConsultantChatResponse output:', response);
+          // console.log('generateConsultantChatResponse input:', contents, useProModel);
+          // console.log('generateConsultantChatResponse output:', response);
 
           if (!response ) {
             throw new Error('AI 回應無效');
@@ -135,7 +135,7 @@ export async function POST(request: NextRequest) {
               send({ type: 'response_chunk', content: response.text + "\n---\n" });
             }
 
-            console.log('Processing function calls:', response.functionCalls);
+            // console.log('Processing function calls:', response.functionCalls);
             send({ type: 'step', content: '正在處理函數調用請求...'  });
 
 
@@ -151,13 +151,13 @@ export async function POST(request: NextRequest) {
                 .filter((part: any) => part.functionCall)
                 .map((part: any) => part.functionCall);
             } else {
-              console.log("No valid candidates or content parts found in the response.");
+              // console.log("No valid candidates or content parts found in the response.");
               throw new Error('AI 函數調用回應無效');
             }
 
-            console.log("Function calls found:", functionCallsArray.length);
+            // console.log("Function calls found:", functionCallsArray.length);
             functionCallsArray.forEach((call: any, index: number) => {
-              console.log(`Function call ${index + 1}:`, call);
+              // console.log(`Function call ${index + 1}:`, call);
             });
 
             const functionResponses = [];
@@ -165,10 +165,10 @@ export async function POST(request: NextRequest) {
             for (const functionCall of functionCallsArray) {
 
               if (functionCall.name == "searchMacauLegalKnowledgeBase") {
-                console.log("Function call: searchMacauLegalKnowledgeBase");
+                // console.log("Function call: searchMacauLegalKnowledgeBase");
                 // Extract the keywords from the function call arguments
                 const keywords = functionCall.args.keywords;
-                console.log("Keywords for search:", keywords);
+                // console.log("Keywords for search:", keywords);
                 // Call the search function with the keywords
 
                 send({ type: 'step', content: '正在生成嵌入向量以用於搜尋...' });
@@ -193,7 +193,7 @@ export async function POST(request: NextRequest) {
                   functionResponsePart.functionResponse.response.result = "";
                 }
                 else {
-                  console.log('searchDocuments number of results: ', searchResults.length);
+                  // console.log('searchDocuments number of results: ', searchResults.length);
                   functionResponsePart.functionResponse.response.result = searchResultsToMarkdown(searchResults);
                   documents_ids.push(...searchResults.map(doc => doc.id));
                 }
@@ -214,10 +214,10 @@ export async function POST(request: NextRequest) {
             });
 
             // Get the final response from the model
-            console.log('Generating consultant chat response...');
+            // console.log('Generating consultant chat response...');
             response = await generateConsultantChatResponse(contents, useProModel) ;
-            console.log('generateConsultantChatResponse input:', contents, useProModel);
-            console.log('generateConsultantChatResponse output:', response);
+            // console.log('generateConsultantChatResponse input:', contents, useProModel);
+            // console.log('generateConsultantChatResponse output:', response);
 
             if (!response) {
               throw new Error('AI 回應無效');
@@ -227,7 +227,7 @@ export async function POST(request: NextRequest) {
           }
 
           // console.log('finial response:', response);
-          console.log('documents_ids: ', documents_ids);
+          // console.log('documents_ids: ', documents_ids);
 
           if (!response || !response.text) {
               throw new Error('AI 回應無效');
@@ -250,12 +250,12 @@ export async function POST(request: NextRequest) {
           });
 
           // Update token usage and save conversation
-          console.log('Updating token usage...');
+          // console.log('Updating token usage...');
           await updateTokenUsage(user.id, finalTokens);
-          console.log('updateTokenUsage input:', user.id, finalTokens);
+          // console.log('updateTokenUsage input:', user.id, finalTokens);
 
           // Save conversation and messages
-          console.log('Saving conversation and messages...');
+          // console.log('Saving conversation and messages...');
           let savedConversationId = conversationId;
 
           try {
@@ -271,16 +271,16 @@ export async function POST(request: NextRequest) {
               modelName
             );
             
-            console.log('Conversation saved successfully:', savedConversationId);
+            // console.log('Conversation saved successfully:', savedConversationId);
           } catch (saveError) {
             console.error('Failed to save conversation:', saveError);
             // Fallback to temporary ID if saving fails
             savedConversationId = conversationId || 'temp-' + Date.now();
           }
 
-          console.log('Logging API usage...');
+          // console.log('Logging API usage...');
           await logAPIUsage(user.id, 'consultant', finalTokens);
-          console.log('logAPIUsage input:', user.id, 'consultant', finalTokens);
+          // console.log('logAPIUsage input:', user.id, 'consultant', finalTokens);
 
           send({
             type: 'completion',
