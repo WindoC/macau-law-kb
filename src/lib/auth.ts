@@ -103,8 +103,8 @@ export async function authenticateRequest(request: NextRequest): Promise<AuthRes
     }
 
     // Create a fresh Supabase client for token validation
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://nuvztbzcmjbfzlrrcjxb.supabase.co';
-    const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im51dnp0YnpjbWpiZnpscnJjanhiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDgxNjQ5NzAsImV4cCI6MjA2Mzc0MDk3MH0.ffViplJRShSXoHUA_ATgTvDrQdxes9N5BeEtMPOy5jU';
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
     
     const supabase = createClient(supabaseUrl, supabaseAnonKey);
     
