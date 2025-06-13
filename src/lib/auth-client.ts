@@ -43,7 +43,7 @@ export function getSessionToken(): string | null {
   
   try {
     // Get the session from localStorage where Supabase stores it
-    const session = localStorage.getItem('sb-nuvztbzcmjbfzlrrcjxb-auth-token');
+    const session = localStorage.getItem(process.env.NEXT_PUBLIC_LOCALSTORAGE_ID || 'localstorage-auth-token');
     if (!session) return null;
     
     const parsed = JSON.parse(session);
@@ -65,7 +65,7 @@ export async function getCurrentUser(): Promise<any | null> {
 
   try {
     // Get the session from localStorage where Supabase stores it
-    const session = localStorage.getItem('sb-nuvztbzcmjbfzlrrcjxb-auth-token');
+    const session = localStorage.getItem(process.env.NEXT_PUBLIC_LOCALSTORAGE_ID || 'localstorage-auth-token');
     if (!session) return null;
     
     const parsed = JSON.parse(session);
