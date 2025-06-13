@@ -1,13 +1,15 @@
 import { NextRequest } from 'next/server';
 import {
   authenticateRequest,
+  validateMethod,
+  logAPIUsage
+} from '@/lib/auth-server';
+import {
   hasFeatureAccess,
   hasTokens,
   createErrorResponse,
-  createSuccessResponse,
-  validateMethod,
-  logAPIUsage
-} from '@/lib/auth';
+  createSuccessResponse
+} from '@/lib/auth-client';
 import {
   generateEmbedding,
   generateSearchKeywords,

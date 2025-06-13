@@ -1,13 +1,15 @@
 import { NextRequest } from 'next/server';
-import { 
-  authenticateRequest, 
-  hasFeatureAccess, 
-  hasTokens, 
-  createErrorResponse, 
-  createSuccessResponse,
+import {
+  authenticateRequest,
   validateMethod,
   logAPIUsage
-} from '@/lib/auth';
+} from '@/lib/auth-server';
+import {
+  hasFeatureAccess,
+  hasTokens,
+  createErrorResponse,
+  createSuccessResponse
+} from '@/lib/auth-client';
 import { generateEmbedding, generateSearchKeywords, countTokens } from '@/lib/gemini';
 import { searchDocuments, saveSearchHistory, updateTokenUsage } from '@/lib/database';
 import { supabase } from '@/lib/supabase';

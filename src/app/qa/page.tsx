@@ -65,7 +65,7 @@ export default function QAPage() {
     setCurrentStep('');
 
     try {
-      const { getSessionToken } = await import('@/lib/auth');
+      const { getSessionToken } = await import('@/lib/auth-client');
       const token = await getSessionToken();
       
       if (!token) {
