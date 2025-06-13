@@ -99,7 +99,7 @@ export async function POST(request: NextRequest) {
 
           await updateTokenUsage(user.id, actualTokens);
           const documentIds = searchResults.map((result) => result.id);
-          await saveQAHistory(user.id, question, answer, documentIds);
+          await saveQAHistory(user.id, question, answer, documentIds, actualTokens);
           await logAPIUsage(user.id, 'qa', actualTokens);
 
         } catch (e) {
@@ -120,47 +120,6 @@ export async function POST(request: NextRequest) {
     });
   } catch (error) {
     console.error('Q&A API error:', error);
-    return createErrorResponse('內部伺服器錯誤', 500);
-  }
-}
-
-/**
- * Get Q&A history for authenticated user
- */
-export async function GET(request: NextRequest) {
-  try {
-    // Authenticate user
-    const authResult = await authenticateRequest(request);
-    if (!authResult.success || !authResult.user) {
-      return createErrorResponse(authResult.error || '未經授權', 401);
-    }
-    const user = authResult.user;
-
-    // Get query parameters
-    const { searchParams } = new URL(request.url);
-    const limit = parseInt(searchParams.get('limit') || '20');
-    const offset = parseInt(searchParams.get('offset') || '0');
-
-    // Fetch Q&A history from database
-    const { data, error } = await supabase
-      .from('qa_history')
-      .select('*')
-      .eq('user_id', user.id)
-      .order('created_at', { ascending: false })
-      .range(offset, offset + limit - 1);
-
-    if (error) {
-      console.error('Database error:', error);
-      return createErrorResponse('無法獲取問答歷史', 500);
-    }
-
-    return createSuccessResponse({
-      history: data || [],
-      total: data?.length || 0
-    });
-
-  } catch (error) {
-    console.error('Q&A history API error:', error);
     return createErrorResponse('內部伺服器錯誤', 500);
   }
 }
