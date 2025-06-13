@@ -6,7 +6,7 @@ declare namespace NodeJS {
     SUPABASE_SERVICE_ROLE_KEY: string;
 
     // Google Gemini AI Configuration
-    GOOGLE_AI_API_KEY: string;
+    GEMINI_API_KEY: string;
 
     // Cloudflare Turnstile (CAPTCHA)
     NEXT_PUBLIC_CLOUDFLARE_TURNSTILE_SITE_KEY: string;
