@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Navigation from '@/components/Navigation';
 import { getCurrentUser, getSessionToken } from '@/lib/auth-client';
+import { supabase } from '@/lib/supabase'
 
 interface UserProfile {
   id: string;
@@ -30,6 +31,7 @@ export default function ProfilePage() {
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [credits, setCredits] = useState<UserCredits | null>(null);
   const [loading, setLoading] = useState(true);
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const router = useRouter();
 
   useEffect(() => {
@@ -109,17 +111,17 @@ export default function ProfilePage() {
 
   const handleLogout = async () => {
     try {
-      const response = await fetch('/api/auth/logout', {
-        method: 'POST',
-      });
-      
-      if (response.ok) {
-        router.push('/');
+      const { error } = await supabase.auth.signOut()
+      router.push('/');
+      if (error) {
+        console.error('Logout error:', error)
+        alert('登出失敗，請稍後再試')
       }
     } catch (error) {
-      console.error('登出錯誤:', error);
+      console.error('Logout error:', error)
+      alert('登出失敗，請稍後再試')
     }
-  };
+  }
 
   const getRoleBadge = (role: string) => {
     const badges = {
@@ -134,7 +136,7 @@ export default function ProfilePage() {
   const getRoleDescription = (role: string) => {
     const descriptions = {
       admin: '完全訪問所有功能和管理控制',
-      free: '每月1000免費代幣，可使用搜索和問答功能',
+      free: '登記免費送 100,000 Token，可使用搜索和問答功能，如要使用諮詢請按頁底的"升級帳戶"',
       pay: '無限制訪問，按使用量付費',
       vip: '高級訪問，包含進階AI模型',
     };
@@ -156,6 +158,16 @@ export default function ProfilePage() {
       </>
     );
   }
+
+  // Function to handle opening the modal
+  const handleOpenUpgradeModal = () => {
+    setShowUpgradeModal(true);
+  };
+
+  // Function to handle closing the modal
+  const handleCloseUpgradeModal = () => {
+    setShowUpgradeModal(false);
+  };
 
   return (
     <>
@@ -184,7 +196,7 @@ export default function ProfilePage() {
               <div className="card-body">
                 {profile && (
                   <div className="row">
-                    <div className="col-md-8">
+                    <div className="col-md">
                       <div className="mb-3">
                         <label className="form-label">電子郵件</label>
                         <input 
@@ -221,8 +233,8 @@ export default function ProfilePage() {
                         </p>
                       </div>
                     </div>
-                    <div className="col-md-4 text-center">
-                      {/* <div className="mb-3">
+                    {/* <div className="col-md-4 text-center">
+                      <div className="mb-3">
                         <img
                           src={profile.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(profile.name)}&background=0d6efd&color=fff&size=120`}
                           alt="個人頭像"
@@ -231,12 +243,12 @@ export default function ProfilePage() {
                           height="120"
                           style={{ objectFit: 'cover' }}
                         />
-                      </div> */}
-                      {/* <button className="btn btn-outline-info btn-sm">
+                      </div>
+                      <button className="btn btn-outline-info btn-sm">
                         <i className="fas fa-camera me-1"></i>
                         更換頭像
-                      </button> */}
-                    </div>
+                      </button>
+                    </div> */}
                   </div>
                 )}
               </div>
@@ -247,31 +259,31 @@ export default function ProfilePage() {
               <div className="card-header bg-success text-white">
                 <h5 className="mb-0">
                   <i className="fas fa-coins me-2"></i>
-                  代幣使用情況
+                  Token 使用情況
                 </h5>
               </div>
               <div className="card-body">
                 {credits && (
                   <div>
                     <div className="row mb-3">
-                      <div className="col-md-4">
+                      <div className="col-md-6">
                         <div className="text-center p-3 bg-primary text-white rounded">
                           <h4>{credits.remaining_tokens.toLocaleString()}</h4>
-                          <small>剩餘代幣</small>
+                          <small>剩餘Token</small>
                         </div>
                       </div>
-                      <div className="col-md-4">
-                        <div className="text-center p-3 bg-success text-white rounded">
+                      <div className="col-md-6">
+                        <div className="text-center p-3 bg-warning text-dark rounded">
                           <h4>{credits.used_tokens.toLocaleString()}</h4>
-                          <small>本月已使用</small>
+                          <small>已使用</small>
                         </div>
                       </div>
-                      <div className="col-md-4">
+                      {/* <div className="col-md-4">
                         <div className="text-center p-3 bg-warning text-dark rounded">
                           <h4>{credits.monthly_limit.toLocaleString()}</h4>
-                          <small>月度限額</small>
+                          <small>免費Token</small>
                         </div>
-                      </div>
+                      </div> */}
                       {/* <div className="col-md-3">
                         <div className="text-center p-3 bg-warning text-dark rounded">
                           <h4>
@@ -298,10 +310,10 @@ export default function ProfilePage() {
                       </div>
                     </div> */}
 
-                    <div className="alert alert-info">
+                    {/* <div className="alert alert-info">
                       <i className="fas fa-calendar-alt me-2"></i>
                       <strong>下次重置:</strong> {new Date(credits.reset_date).toLocaleDateString('zh-TW')}
-                    </div>
+                    </div> */}
                   </div>
                 )}
               </div>
@@ -370,20 +382,23 @@ export default function ProfilePage() {
               <div className="card-body">
                 <div className="row">
                   <div className="col-md-6">
-                    <button className="btn btn-primary w-100 mb-2">
+                    <button
+                      className="btn btn-primary w-100 mb-2"
+                      onClick={handleOpenUpgradeModal} // Open the modal instead of alert
+                    >
                       <i className="fas fa-arrow-up me-1"></i>
                       升級帳戶
                     </button>
-                    <button className="btn btn-outline-secondary w-100 mb-2">
+                    {/* <button className="btn btn-outline-secondary w-100 mb-2">
                       <i className="fas fa-history me-1"></i>
                       查看使用歷史
-                    </button>
+                    </button> */}
                   </div>
                   <div className="col-md-6">
-                    <button className="btn btn-outline-info w-100 mb-2">
+                    {/* <button className="btn btn-outline-info w-100 mb-2">
                       <i className="fas fa-download me-1"></i>
                       下載資料
-                    </button>
+                    </button> */}
                     <button 
                       className="btn btn-outline-danger w-100 mb-2"
                       onClick={handleLogout}
@@ -398,6 +413,29 @@ export default function ProfilePage() {
           </div>
         </div>
       </div>
+
+      {/* Upgrade Account Modal */}
+      {showUpgradeModal && (
+        <div className="modal fade show" style={{ display: 'block', backgroundColor: 'rgba(0,0,0,0.5)' }}>
+          <div className="modal-dialog">
+            <div className="modal-content">
+              <div className="modal-header">
+                <h5 className="modal-title">升級帳戶</h5>
+                <button type="button" className="btn-close" onClick={handleCloseUpgradeModal}></button>
+              </div>
+              <div className="modal-body">
+                <p>請聯絡我們以升級您的帳戶:</p>
+                <a href="mailto:windo.ac@gmail.com">windo.ac@gmail.com</a>
+              </div>
+              <div className="modal-footer">
+                <button type="button" className="btn btn-secondary" onClick={handleCloseUpgradeModal}>
+                  關閉
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }
