@@ -1,10 +1,10 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 
 /**
  * Health check endpoint
  * Returns application status and basic information
  */
-export async function GET(request: NextRequest) {
+export async function GET() {
   try {
     return NextResponse.json({
       status: 'healthy',

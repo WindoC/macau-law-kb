@@ -191,7 +191,7 @@ export async function advancedSearch(options: {
   try {
     const { query, lawId, category, dateFrom, dateTo, matchCount = 20 } = options;
     
-    let filter: Record<string, any> = {};
+    const filter: Record<string, any> = {};
     
     // Build metadata filter
     if (lawId) {

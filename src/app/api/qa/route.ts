@@ -7,8 +7,7 @@ import {
 import {
   hasFeatureAccess,
   hasTokens,
-  createErrorResponse,
-  createSuccessResponse
+  createErrorResponse
 } from '@/lib/auth-client';
 import {
   generateEmbedding,
@@ -21,9 +20,10 @@ import {
   saveQAHistory,
   updateTokenUsage,
 } from '@/lib/database';
-import { supabase } from '@/lib/supabase';
 
-export const runtime = 'edge';
+// Temporarily disable Edge Runtime due to jsonwebtoken dependency
+// export const runtime = 'edge';
+export const runtime = 'nodejs';
 
 /**
  * Legal Q&A API endpoint (Streaming)

@@ -116,7 +116,7 @@ describe('Conversation Database Functions', () => {
 
     it('should save messages with document IDs', async () => {
       const conversationId = 'test-conversation-id';
-      const documentIds = [1, 2, 3];
+      // const documentIds = [1, 2, 3]; // Unused variable commented out
       
       await expect(
         saveConversationMessages(conversationId, mockMessages)
