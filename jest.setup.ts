@@ -21,12 +21,18 @@ jest.mock('next/navigation', () => ({
 }))
 
 // Mock environment variables
-process.env.NEXT_PUBLIC_SUPABASE_URL = 'https://test.supabase.co'
-process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = 'test-anon-key'
-process.env.SUPABASE_SERVICE_ROLE_KEY = 'test-service-role-key'
-process.env.GEMINI_API_KEY = 'test-gemini-key'
-process.env.JWT_SECRET = 'test-jwt-secret'
-process.env.CSRF_SECRET = 'test-csrf-secret'
+// process.env.NEXT_PUBLIC_SUPABASE_URL = 'https://test.supabase.co'
+// process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = 'test-anon-key'
+// process.env.SUPABASE_SERVICE_ROLE_KEY = 'test-service-role-key'
+// process.env.GEMINI_API_KEY = 'test-gemini-key'
+// process.env.JWT_SECRET = 'test-jwt-secret'
+// process.env.CSRF_SECRET = 'test-csrf-secret'
+
+// jest.config.js
+module.exports = {
+  // other settings...
+  setupFiles: ['<rootDir>/jest.env-setup.js'],
+};
 
 // Mock global Response for Node.js environment
 class MockResponse {
