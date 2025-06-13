@@ -55,7 +55,7 @@ export default function ConsultantPage() {
 
     try {
       // Get session token for authentication
-      const { getSessionToken } = await import('@/lib/auth');
+      const { getSessionToken } = await import('@/lib/auth-client');
       const token = await getSessionToken();
       
       if (!token) {

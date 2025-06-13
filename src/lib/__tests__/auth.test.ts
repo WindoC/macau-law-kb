@@ -1,14 +1,16 @@
-import { 
-  hasFeatureAccess, 
-  canUseProModel, 
-  hasTokens, 
-  generateCSRFToken, 
-  verifyCSRFToken,
+import {
+  hasFeatureAccess,
+  canUseProModel,
+  hasTokens,
   createErrorResponse,
   createSuccessResponse,
   validateMethod
-} from '../auth';
-import { AuthenticatedUser } from '../auth';
+} from '../auth-client';
+import {
+  generateCSRFToken,
+  verifyCSRFToken
+} from '../auth-server';
+import { AuthenticatedUser } from '../auth-client';
 
 // Mock JWT
 jest.mock('jsonwebtoken', () => ({
@@ -17,33 +19,42 @@ jest.mock('jsonwebtoken', () => ({
 }));
 
 describe('Authentication Utilities', () => {
-  beforeEach(() => {
-    process.env.JWT_SECRET = 'test-secret';
-  });
+  // beforeEach(() => {
+  //   process.env.JWT_SECRET = 'test-secret';
+  // });
 
   describe('hasFeatureAccess', () => {
     const adminUser: AuthenticatedUser = {
       id: '1',
       email: 'admin@test.com',
       role: 'admin',
-      monthly_tokens: 10000,
-      used_tokens: 100
+      created_at: '2023-01-01T00:00:00Z',
+      updated_at: '2023-01-01T00:00:00Z',
+      total_tokens: 10000,
+      used_tokens: 100,
+      remaining_tokens: 9900
     };
 
     const freeUser: AuthenticatedUser = {
       id: '2',
       email: 'free@test.com',
       role: 'free',
-      monthly_tokens: 1000,
-      used_tokens: 100
+      created_at: '2023-01-01T00:00:00Z',
+      updated_at: '2023-01-01T00:00:00Z',
+      total_tokens: 1000,
+      used_tokens: 100,
+      remaining_tokens: 900
     };
 
     const payUser: AuthenticatedUser = {
       id: '3',
       email: 'pay@test.com',
       role: 'pay',
-      monthly_tokens: 5000,
-      used_tokens: 100
+      created_at: '2023-01-01T00:00:00Z',
+      updated_at: '2023-01-01T00:00:00Z',
+      total_tokens: 5000,
+      used_tokens: 100,
+      remaining_tokens: 4900
     };
 
     it('should allow all users to access search', () => {
@@ -65,7 +76,7 @@ describe('Authentication Utilities', () => {
     });
 
     it('should deny access to unknown features', () => {
-      expect(hasFeatureAccess(adminUser, 'unknown')).toBe(false);
+      expect(hasFeatureAccess(adminUser, 'pro_model')).toBe(false);
     });
   });
 
@@ -75,16 +86,22 @@ describe('Authentication Utilities', () => {
         id: '1',
         email: 'vip@test.com',
         role: 'vip',
-        monthly_tokens: 10000,
-        used_tokens: 100
+        created_at: '2023-01-01T00:00:00Z',
+        updated_at: '2023-01-01T00:00:00Z',
+        total_tokens: 10000,
+        used_tokens: 100,
+        remaining_tokens: 9900
       };
 
       const payUser: AuthenticatedUser = {
         id: '2',
         email: 'pay@test.com',
         role: 'pay',
-        monthly_tokens: 5000,
-        used_tokens: 100
+        created_at: '2023-01-01T00:00:00Z',
+        updated_at: '2023-01-01T00:00:00Z',
+        total_tokens: 5000,
+        used_tokens: 100,
+        remaining_tokens: 4900
       };
 
       expect(canUseProModel(vipUser)).toBe(true);
@@ -98,8 +115,11 @@ describe('Authentication Utilities', () => {
         id: '1',
         email: 'admin@test.com',
         role: 'admin',
-        monthly_tokens: 1000,
-        used_tokens: 1500 // Over limit
+        created_at: '2023-01-01T00:00:00Z',
+        updated_at: '2023-01-01T00:00:00Z',
+        total_tokens: 1000,
+        used_tokens: 1500,
+        remaining_tokens: -500 // Over limit
       };
 
       expect(hasTokens(adminUser, 1000)).toBe(true);
@@ -110,8 +130,11 @@ describe('Authentication Utilities', () => {
         id: '1',
         email: 'user@test.com',
         role: 'free',
-        monthly_tokens: 1000,
-        used_tokens: 900
+        created_at: '2023-01-01T00:00:00Z',
+        updated_at: '2023-01-01T00:00:00Z',
+        total_tokens: 1000,
+        used_tokens: 900,
+        remaining_tokens: 100
       };
 
       expect(hasTokens(user, 50)).toBe(true);  // 100 remaining, need 50

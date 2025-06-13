@@ -1,10 +1,12 @@
 import { NextRequest } from 'next/server';
-import { 
-  authenticateRequest, 
-  createErrorResponse, 
-  createSuccessResponse,
+import {
+  authenticateRequest,
   validateMethod
-} from '@/lib/auth';
+} from '@/lib/auth-server';
+import {
+  createErrorResponse,
+  createSuccessResponse
+} from '@/lib/auth-client';
 import { getLawDocument } from '@/lib/database';
 
 /**
