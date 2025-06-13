@@ -21,13 +21,16 @@ describe('Gemini AI Service', () => {
 
   describe('generateEmbedding', () => {
     it('should generate embeddings for text', async () => {
-      mockGenerateEmbedding.mockResolvedValue([0.1, 0.2, 0.3]);
+      const mockResult = { embedding: [0.1, 0.2, 0.3], tokenCount: 10 };
+      mockGenerateEmbedding.mockResolvedValue(mockResult);
 
       const text = 'Test legal document';
-      const embedding = await generateEmbedding(text);
+      const result = await generateEmbedding(text);
       
-      expect(embedding).toEqual([0.1, 0.2, 0.3]);
-      expect(Array.isArray(embedding)).toBe(true);
+      expect(result).toEqual(mockResult);
+      expect(result.embedding).toEqual([0.1, 0.2, 0.3]);
+      expect(Array.isArray(result.embedding)).toBe(true);
+      expect(result.tokenCount).toBe(10);
       expect(mockGenerateEmbedding).toHaveBeenCalledWith(text);
     });
 
@@ -40,28 +43,35 @@ describe('Gemini AI Service', () => {
 
   describe('generateSearchKeywords', () => {
     it('should generate search keywords from query', async () => {
-      mockGenerateSearchKeywords.mockResolvedValue(['刑法', '謀殺', '刑罰', '法律條文', '澳門法律']);
+      const mockResult = { keywords: ['刑法', '謀殺', '刑罰', '法律條文', '澳門法律'], tokenCount: 15 };
+      mockGenerateSearchKeywords.mockResolvedValue(mockResult);
 
       const query = 'Maximum penalty for murder';
-      const keywords = await generateSearchKeywords(query);
+      const result = await generateSearchKeywords(query);
       
-      expect(keywords).toEqual(['刑法', '謀殺', '刑罰', '法律條文', '澳門法律']);
-      expect(keywords.length).toBeLessThanOrEqual(5);
+      expect(result).toEqual(mockResult);
+      expect(result.keywords).toEqual(['刑法', '謀殺', '刑罰', '法律條文', '澳門法律']);
+      expect(result.keywords.length).toBeLessThanOrEqual(5);
+      expect(result.tokenCount).toBe(15);
       expect(mockGenerateSearchKeywords).toHaveBeenCalledWith(query);
     });
 
     it('should handle empty response', async () => {
-      mockGenerateSearchKeywords.mockResolvedValue([]);
+      const mockResult = { keywords: [], tokenCount: 5 };
+      mockGenerateSearchKeywords.mockResolvedValue(mockResult);
 
-      const keywords = await generateSearchKeywords('test query');
-      expect(keywords).toEqual([]);
+      const result = await generateSearchKeywords('test query');
+      expect(result.keywords).toEqual([]);
+      expect(result.tokenCount).toBe(5);
     });
 
     it('should filter out empty keywords', async () => {
-      mockGenerateSearchKeywords.mockResolvedValue(['keyword1', 'keyword2', 'keyword3']);
+      const mockResult = { keywords: ['keyword1', 'keyword2', 'keyword3'], tokenCount: 12 };
+      mockGenerateSearchKeywords.mockResolvedValue(mockResult);
 
-      const keywords = await generateSearchKeywords('test query');
-      expect(keywords).toEqual(['keyword1', 'keyword2', 'keyword3']);
+      const result = await generateSearchKeywords('test query');
+      expect(result.keywords).toEqual(['keyword1', 'keyword2', 'keyword3']);
+      expect(result.tokenCount).toBe(12);
     });
 
     it('should handle errors gracefully', async () => {
@@ -73,7 +83,11 @@ describe('Gemini AI Service', () => {
 
   describe('generateLegalAnswer', () => {
     it('should generate legal answer from search results', async () => {
-      mockGenerateLegalAnswer.mockResolvedValue('Based on the legal documents, the penalty for murder is life imprisonment.');
+      const mockResult = {
+        answer: 'Based on the legal documents, the penalty for murder is life imprisonment.',
+        tokenCount: 25
+      };
+      mockGenerateLegalAnswer.mockResolvedValue(mockResult);
 
       const question = 'What is the penalty for murder?';
       const searchResults = [
@@ -84,14 +98,20 @@ describe('Gemini AI Service', () => {
         }
       ];
 
-      const answer = await generateLegalAnswer(question, searchResults);
-      expect(typeof answer).toBe('string');
-      expect(answer).toBe('Based on the legal documents, the penalty for murder is life imprisonment.');
+      const result = await generateLegalAnswer(question, searchResults);
+      expect(result).toEqual(mockResult);
+      expect(typeof result.answer).toBe('string');
+      expect(result.answer).toBe('Based on the legal documents, the penalty for murder is life imprisonment.');
+      expect(result.tokenCount).toBe(25);
       expect(mockGenerateLegalAnswer).toHaveBeenCalledWith(question, searchResults);
     });
 
     it('should handle multiple search results', async () => {
-      mockGenerateLegalAnswer.mockResolvedValue('Legal analysis based on multiple sources.');
+      const mockResult = {
+        answer: 'Legal analysis based on multiple sources.',
+        tokenCount: 30
+      };
+      mockGenerateLegalAnswer.mockResolvedValue(mockResult);
 
       const question = 'Legal question';
       const searchResults = [
@@ -107,9 +127,11 @@ describe('Gemini AI Service', () => {
         }
       ];
 
-      const answer = await generateLegalAnswer(question, searchResults);
-      expect(typeof answer).toBe('string');
-      expect(answer).toBe('Legal analysis based on multiple sources.');
+      const result = await generateLegalAnswer(question, searchResults);
+      expect(result).toEqual(mockResult);
+      expect(typeof result.answer).toBe('string');
+      expect(result.answer).toBe('Legal analysis based on multiple sources.');
+      expect(result.tokenCount).toBe(30);
       expect(mockGenerateLegalAnswer).toHaveBeenCalledWith(question, searchResults);
     });
 
