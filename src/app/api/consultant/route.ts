@@ -10,7 +10,7 @@ import {
   logAPIUsage
 } from '@/lib/auth';
 import { generateConsultantChatResponse, countTokens , generateEmbedding , searchResultsToMarkdown } from '@/lib/gemini';
-import { saveConversation, getConversation, updateTokenUsage , searchDocuments } from '@/lib/database';
+import { saveConversation, updateTokenUsage , searchDocuments } from '@/lib/database';
 import { supabase } from '@/lib/supabase';
 
 export const runtime = 'edge';
@@ -294,107 +294,6 @@ export async function POST(request: NextRequest) {
     });
   } catch (error) {
     console.error('Consultant API error:', error);
-    return createErrorResponse('內部伺服器錯誤', 500);
-  }
-}
-
-/**
- * Get conversation history for authenticated user
- */
-export async function GET(request: NextRequest) {
-  try {
-    // Authenticate user
-    const authResult = await authenticateRequest(request);
-    if (!authResult.success || !authResult.user) {
-      return createErrorResponse(authResult.error || '未經授權', 401);
-    }
-    const user = authResult.user;
-
-    // Check feature access
-    if (!hasFeatureAccess(user, 'consultant')) {
-      return createErrorResponse('存取遭拒', 403);
-    }
-
-    // Get query parameters
-    const { searchParams } = new URL(request.url);
-    const conversationId = searchParams.get('conversationId');
-    const limit = parseInt(searchParams.get('limit') || '20');
-    const offset = parseInt(searchParams.get('offset') || '0');
-
-    if (conversationId) {
-      // Get specific conversation
-      const conversation = await getConversation(conversationId, user.id);
-      if (!conversation) {
-        return createErrorResponse('找不到對話', 404);
-      }
-      return createSuccessResponse({ conversation });
-    } else {
-      // Get conversation list
-      const { data, error } = await supabase
-        .from('conversations')
-        .select('id, title, created_at, updated_at')
-        .eq('user_id', user.id)
-        .order('updated_at', { ascending: false })
-        .range(offset, offset + limit - 1);
-
-      if (error) {
-        console.error('Database error:', error);
-        return createErrorResponse('無法獲取對話', 500);
-      }
-
-      return createSuccessResponse({
-        conversations: data || [],
-        total: data?.length || 0
-      });
-    }
-
-  } catch (error) {
-    console.error('Consultant history API error:', error);
-    return createErrorResponse('內部伺服器錯誤', 500);
-  }
-}
-
-/**
- * Delete conversation
- */
-export async function DELETE(request: NextRequest) {
-  try {
-    // Authenticate user
-    const authResult = await authenticateRequest(request);
-    if (!authResult.success || !authResult.user) {
-      return createErrorResponse(authResult.error || '未經授權', 401);
-    }
-    const user = authResult.user;
-
-    // Check feature access
-    if (!hasFeatureAccess(user, 'consultant')) {
-      return createErrorResponse('存取遭拒', 403);
-    }
-
-    // Get conversation ID from query parameters
-    const { searchParams } = new URL(request.url);
-    const conversationId = searchParams.get('conversationId');
-
-    if (!conversationId) {
-      return createErrorResponse('需要對話 ID');
-    }
-
-    // Delete conversation
-    const { error } = await supabase
-      .from('conversations')
-      .delete()
-      .eq('id', conversationId)
-      .eq('user_id', user.id);
-
-    if (error) {
-      console.error('Database error:', error);
-      return createErrorResponse('無法刪除對話', 500);
-    }
-
-    return createSuccessResponse({ message: '成功刪除對話' });
-
-  } catch (error) {
-    console.error('Delete conversation API error:', error);
     return createErrorResponse('內部伺服器錯誤', 500);
   }
 }

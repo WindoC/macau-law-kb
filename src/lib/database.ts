@@ -80,7 +80,8 @@ export async function searchDocuments(
 export async function saveSearchHistory(
   userId: string,
   query: string,
-  documentIds: number[]
+  documentIds: number[],
+  tokens_used: number,
 ): Promise<string> {
   try {
     const { data, error } = await supabaseServer
@@ -89,6 +90,7 @@ export async function saveSearchHistory(
         user_id: userId,
         query: query,
         document_ids: documentIds,
+        tokens_used: tokens_used,
         created_at: new Date().toISOString()
       })
       .select('id')
@@ -118,7 +120,8 @@ export async function saveQAHistory(
   userId: string,
   question: string,
   answer: string,
-  documentIds: number[]
+  documentIds: number[],
+  tokens_used: number,
 ): Promise<string> {
   try {
     const { data, error } = await supabaseServer
@@ -128,6 +131,7 @@ export async function saveQAHistory(
         question: question,
         answer: answer,
         document_ids: documentIds,
+        tokens_used: tokens_used,
         created_at: new Date().toISOString()
       })
       .select('id')
@@ -205,69 +209,6 @@ export async function saveConversation(
   } catch (error) {
     console.error('Database save conversation error:', error);
     throw new Error('Failed to save conversation');
-  }
-}
-
-/**
- * Get user conversations
- * @param userId - User ID
- * @param limit - Number of conversations to return
- * @returns Promise<ConversationHistory[]> - Array of conversations
- */
-export async function getUserConversations(
-  userId: string,
-  limit: number = 20
-): Promise<ConversationHistory[]> {
-  try {
-    const { data, error } = await supabase
-      .from('consultant_conversations')
-      .select('*')
-      .eq('user_id', userId)
-      .order('updated_at', { ascending: false })
-      .limit(limit);
-
-    if (error) {
-      console.error('Get conversations error:', error);
-      throw new Error('Failed to get conversations');
-    }
-
-    return data || [];
-  } catch (error) {
-    console.error('Database get conversations error:', error);
-    throw new Error('Failed to get conversations');
-  }
-}
-
-/**
- * Get conversation by ID
- * @param conversationId - Conversation ID
- * @param userId - User ID
- * @returns Promise<ConversationHistory | null> - Conversation data
- */
-export async function getConversation(
-  conversationId: string,
-  userId: string
-): Promise<ConversationHistory | null> {
-  try {
-    const { data, error } = await supabase
-      .from('consultant_conversations')
-      .select('*')
-      .eq('id', conversationId)
-      .eq('user_id', userId)
-      .single();
-
-    if (error) {
-      if (error.code === 'PGRST116') {
-        return null; // Not found
-      }
-      console.error('Get conversation error:', error);
-      throw new Error('Failed to get conversation');
-    }
-
-    return data;
-  } catch (error) {
-    console.error('Database get conversation error:', error);
-    throw new Error('Failed to get conversation');
   }
 }
 
