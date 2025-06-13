@@ -1,4 +1,4 @@
-import { GoogleGenAI , FunctionCallingConfigMode , Type , GenerateContentResponse } from '@google/genai';
+import { GoogleGenAI , FunctionCallingConfigMode , Type , GenerateContentResponse, Schema } from '@google/genai';
 
 /**
  * Gemini AI service for legal document processing
@@ -237,19 +237,19 @@ const LEGAL_CONSULTANT_INSTRUCTION = `
 const SEARCH_MACAU_LEGAL_KB = {
   name: "searchMacauLegalKnowledgeBase",
   parameters: {
-    type: "object",
+    type: Type.OBJECT,
     description:
       "根據提供的關鍵字，從澳門法律知識庫中檢索相關的內容片段。適用於查詢澳門地區的法律資訊、法規條文或案例資料。",
     properties: {
       keywords: {
-        type: 'string',
+        type: Type.STRING,
         description:
           "用於查詢澳門法律知識庫的關鍵字或詞語。建議輸入與法律主題、條文名稱、法規或案例相關的詞彙。",
       },
     },
     required: ["keywords"],
   },
-};
+} as Schema;
 
 const CONSULTANT_CONFIG = {
   systemInstruction: LEGAL_CONSULTANT_INSTRUCTION,
