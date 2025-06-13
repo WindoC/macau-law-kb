@@ -3,7 +3,7 @@ import { supabaseServer } from './supabase-server';
 
 /**
  * Database service for legal document operations
- * Handles vector search, user management, and history tracking
+ * Handles vector search, user management, history tracking, and conversation management
  */
 
 export interface DocumentResult {
@@ -11,32 +11,6 @@ export interface DocumentResult {
   content: string;
   metadata: any;
   similarity: number;
-}
-
-export interface SearchHistory {
-  id: string;
-  user_id: string;
-  query: string;
-  document_ids: number[];
-  created_at: string;
-}
-
-export interface QAHistory {
-  id: string;
-  user_id: string;
-  question: string;
-  answer: string;
-  document_ids: number[];
-  created_at: string;
-}
-
-export interface ConversationHistory {
-  id: string;
-  user_id: string;
-  title: string;
-  messages: Array<{ role: 'user' | 'assistant'; content: string; timestamp: string }>;
-  created_at: string;
-  updated_at: string;
 }
 
 /**
@@ -150,28 +124,76 @@ export async function saveQAHistory(
 }
 
 /**
- * Save or update conversation
+ * Save conversation messages to the database
+ * @param conversationId - Conversation ID to link messages to
+ * @param messages - Array of messages to save
+ * @param documentIds - Optional array of document IDs for context
+ * @returns Promise<void>
+ */
+export async function saveConversationMessages(
+  conversationId: string,
+  messages: Array<{ role: 'user' | 'assistant'; content: string; documents_ids?: number[]; tokens_used?: number; timestamp: string }>
+): Promise<void> {
+  try {
+    if (!messages || messages.length === 0) {
+      return;
+    }
+
+    // Prepare messages for insertion
+    const messagesToInsert = messages.slice(-2).map((message) => ({
+      conversation_id: conversationId,
+      role: message.role,
+      content: message.content,
+      document_ids: message.documents_ids || null,
+      tokens_used: message.tokens_used || 0, // Will be updated separately if needed
+      created_at: message.timestamp
+    }));
+
+    const { error } = await supabaseServer
+      .from('consultant_messages')
+      .insert(messagesToInsert);
+
+    if (error) {
+      console.error('Save conversation messages error:', error);
+      throw new Error('Failed to save conversation messages');
+    }
+  } catch (error) {
+    console.error('Database save conversation messages error:', error);
+    throw new Error('Failed to save conversation messages');
+  }
+}
+
+/**
+ * Save or update conversation with messages
  * @param userId - User ID
  * @param conversationId - Conversation ID (null for new conversation)
  * @param messages - Array of conversation messages
  * @param title - Conversation title
+ * @param totalTokens - Total tokens used in conversation
+ * @param modelUsed - Model used for the conversation
+ * @param documentIds - Optional array of document IDs for context
  * @returns Promise<string> - Conversation ID
  */
 export async function saveConversation(
   userId: string,
   conversationId: string | null,
-  messages: Array<{ role: 'user' | 'assistant'; content: string; timestamp: string }>,
-  title?: string
+  messages: Array<{ role: 'user' | 'assistant'; content: string; documents_ids?: number[]; tokens_used?: number; timestamp: string }>,
+  title?: string,
+  totalTokens?: number,
+  modelUsed?: string
 ): Promise<string> {
   try {
     const now = new Date().toISOString();
+    let finalConversationId: string;
     
     if (conversationId) {
       // Update existing conversation
       const { data, error } = await supabaseServer
         .from('consultant_conversations')
         .update({
-          updated_at: now
+          updated_at: now,
+          ...(totalTokens !== undefined && { total_tokens: totalTokens }),
+          ...(modelUsed && { model_used: modelUsed })
         })
         .eq('id', conversationId)
         .eq('user_id', userId)
@@ -183,7 +205,12 @@ export async function saveConversation(
         throw new Error('Failed to update conversation');
       }
 
-      return data.id;
+      finalConversationId = data.id;
+      
+      // For existing conversations, only save new messages
+      // In this implementation, we'll save all messages for simplicity
+      // Future enhancement: implement message deduplication
+      // await saveConversationMessages(finalConversationId, messages);
     } else {
       // Create new conversation
       const conversationTitle = title || `對話 ${new Date().toLocaleDateString('zh-TW')}`;
@@ -193,6 +220,8 @@ export async function saveConversation(
         .insert({
           user_id: userId,
           title: conversationTitle,
+          model_used: modelUsed || 'gemini-2.5-flash-preview-05-20',
+          total_tokens: totalTokens || 0,
           created_at: now,
           updated_at: now
         })
@@ -204,8 +233,13 @@ export async function saveConversation(
         throw new Error('Failed to create conversation');
       }
 
-      return data.id;
+      finalConversationId = data.id;
     }
+      
+    // Save all messages for new conversation
+    await saveConversationMessages(finalConversationId, messages);
+
+    return finalConversationId;
   } catch (error) {
     console.error('Database save conversation error:', error);
     throw new Error('Failed to save conversation');

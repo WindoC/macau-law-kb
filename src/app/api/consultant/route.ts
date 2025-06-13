@@ -84,7 +84,7 @@ export async function POST(request: NextRequest) {
         };
 
         let totalTokenUsage = 0;
-        let fullConversationHistory: Array<{ role: 'user' | 'assistant'; content: string; timestamp: string }> = [];
+        let fullConversationHistory: Array<{ role: 'user' | 'assistant'; content: string; documents_ids?: number[]; tokens_used?: number; timestamp: string }> = [];
 
         try {
           send({ type: 'step', content: '正在處理輸入...' });
@@ -123,6 +123,8 @@ export async function POST(request: NextRequest) {
           }
           
           totalTokenUsage = response.usageMetadata?.totalTokenCount ?? 0;
+
+          const documents_ids = []
 
           while (response.functionCalls) {
 
@@ -191,6 +193,7 @@ export async function POST(request: NextRequest) {
                 else {
                   console.log('searchDocuments number of results: ', searchResults.length);
                   functionResponsePart.functionResponse.response.result = searchResultsToMarkdown(searchResults);
+                  documents_ids.push(...searchResults.map(doc => doc.id));
                 }
                 functionResponses.push(functionResponsePart);
               }
@@ -222,6 +225,7 @@ export async function POST(request: NextRequest) {
           }
 
           // console.log('finial response:', response);
+          console.log('documents_ids: ', documents_ids);
 
           if (!response || !response.text) {
               throw new Error('AI 回應無效');
@@ -231,37 +235,46 @@ export async function POST(request: NextRequest) {
           // Send response
           send({ type: 'response_chunk', content: response.text });
 
+          // Calculate final tokens (Pro model costs 10x)
+          const finalTokens = useProModel ? totalTokenUsage * 10 : totalTokenUsage;
+
           // Add AI response to history
           fullConversationHistory.push({
             role: 'assistant',
             content: response.text ?? '',
+            documents_ids: documents_ids,
+            tokens_used: finalTokens,
             timestamp: new Date().toISOString()
           });
 
-          // Calculate final tokens (Pro model costs 10x)
-          const finalTokens = useProModel ? totalTokenUsage * 10 : totalTokenUsage;
-          
           // Update token usage and save conversation
           console.log('Updating token usage...');
           await updateTokenUsage(user.id, finalTokens);
           console.log('updateTokenUsage input:', user.id, finalTokens);
 
-          // Skip conversation saving for Phase 1 - table doesn't exist yet
-          console.log('Skipping conversation saving - table not created yet');
-          let savedConversationId = conversationId || 'temp-' + Date.now();
-          
-          // TODO: Create conversations table and re-enable this feature
-          // try {
-          //   savedConversationId = await saveConversation(
-          //     user.id,
-          //     conversationId,
-          //     fullConversationHistory,
-          //     fullConversationHistory.length === 2 ? `諮詢: ${message.substring(0, 50)}...` : undefined
-          //   );
-          // } catch (saveError) {
-          //   console.error('Failed to save conversation:', saveError);
-          //   savedConversationId = conversationId || 'temp-' + Date.now();
-          // }
+          // Save conversation and messages
+          console.log('Saving conversation and messages...');
+          let savedConversationId = conversationId;
+
+          try {
+            const modelName = useProModel ? 'gemini-2.5-pro-preview-05-20' : 'gemini-2.5-flash-preview-05-20';
+            const conversationTitle = fullConversationHistory.length === 2 ? `諮詢: ${message.substring(0, 50)}...` : undefined;
+            
+            savedConversationId = await saveConversation(
+              user.id,
+              conversationId,
+              fullConversationHistory,
+              conversationTitle,
+              finalTokens,
+              modelName
+            );
+            
+            console.log('Conversation saved successfully:', savedConversationId);
+          } catch (saveError) {
+            console.error('Failed to save conversation:', saveError);
+            // Fallback to temporary ID if saving fails
+            savedConversationId = conversationId || 'temp-' + Date.now();
+          }
 
           console.log('Logging API usage...');
           await logAPIUsage(user.id, 'consultant', finalTokens);
