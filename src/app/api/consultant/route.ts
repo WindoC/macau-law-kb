@@ -9,8 +9,8 @@ import {
   validateMethod,
   logAPIUsage
 } from '@/lib/auth';
-import { generateConsultantChatResponse, countTokens } from '@/lib/gemini';
-import { saveConversation, getConversation, updateTokenUsage } from '@/lib/database';
+import { generateConsultantChatResponse, countTokens , generateEmbedding , searchResultsToMarkdown } from '@/lib/gemini';
+import { saveConversation, getConversation, updateTokenUsage , searchDocuments } from '@/lib/database';
 import { supabase } from '@/lib/supabase';
 
 export const runtime = 'edge';
@@ -107,17 +107,126 @@ export async function POST(request: NextRequest) {
 
           send({ type: 'step', content: '正在生成回應...' });
 
-          // Generate AI response using simplified method
-          const chatMessages = fullConversationHistory.map((msg: { role: 'user' | 'assistant'; content: string; timestamp: string }) => ({
-            role: (msg.role === 'assistant' ? 'model' : msg.role) as 'user' | 'model',
-            content: msg.content
+          // Format messages for Gemini API - following the example pattern
+          const contents = fullConversationHistory.map((msg) => ({
+            role: msg.role === 'assistant' ? 'model' as const : msg.role,
+            parts: [{ text: msg.content }]
           }));
 
           console.log('Generating consultant chat response...');
-          const response = await generateConsultantChatResponse(chatMessages, useProModel);
-          console.log('generateConsultantChatResponse input:', chatMessages, useProModel);
+          var response = await generateConsultantChatResponse(contents, useProModel) ;
+          console.log('generateConsultantChatResponse input:', contents, useProModel);
           console.log('generateConsultantChatResponse output:', response);
-          totalTokenUsage = response.totalTokenCount;
+
+          if (!response ) {
+            throw new Error('AI 回應無效');
+          }
+          
+          totalTokenUsage = response.usageMetadata?.totalTokenCount ?? 0;
+
+          while (response.functionCalls) {
+
+            if (response && response.text) {
+              // Send response
+              send({ type: 'response_chunk', content: response.text + "\n---\n" });
+            }
+
+            console.log('Processing function calls:', response.functionCalls);
+            send({ type: 'step', content: '正在處理函數調用請求...'  });
+
+
+            // Step 2: Extract all function calls from the response
+            let functionCallsArray: any[] = [];
+            if (
+              response.candidates &&
+              response.candidates[0] &&
+              response.candidates[0].content &&
+              response.candidates[0].content.parts
+            ) {
+              functionCallsArray = response.candidates[0].content.parts
+                .filter((part: any) => part.functionCall)
+                .map((part: any) => part.functionCall);
+            } else {
+              console.log("No valid candidates or content parts found in the response.");
+              throw new Error('AI 函數調用回應無效');
+            }
+
+            console.log("Function calls found:", functionCallsArray.length);
+            functionCallsArray.forEach((call: any, index: number) => {
+              console.log(`Function call ${index + 1}:`, call);
+            });
+
+            const functionResponses = [];
+  
+            for (const functionCall of functionCallsArray) {
+
+              if (functionCall.name == "searchMacauLegalKnowledgeBase") {
+                console.log("Function call: searchMacauLegalKnowledgeBase");
+                // Extract the keywords from the function call arguments
+                const keywords = functionCall.args.keywords;
+                console.log("Keywords for search:", keywords);
+                // Call the search function with the keywords
+
+                send({ type: 'step', content: '正在生成嵌入向量以用於搜尋...' });
+                const keywordsEmbeddingResult = await generateEmbedding(keywords);
+
+                totalTokenUsage += keywordsEmbeddingResult.tokenCount || 0;
+
+                send({ type: 'step', content: '正在搜尋文件...' });
+                const searchResults = await searchDocuments(keywordsEmbeddingResult.embedding, 20);
+                // console.log('searchDocuments done');
+
+                // Create a function response part for this call
+                const functionResponsePart = {
+                  functionResponse: {
+                    name: functionCall.name,
+                    response: { result: "" }
+                  }
+                };
+
+                if (searchResults.length === 0) {
+                  send({ type: 'error', content: '找不到與您的問題相關的法律文件' });
+                  functionResponsePart.functionResponse.response.result = "";
+                }
+                else {
+                  console.log('searchDocuments number of results: ', searchResults.length);
+                  functionResponsePart.functionResponse.response.result = searchResultsToMarkdown(searchResults);
+                }
+                functionResponses.push(functionResponsePart);
+              }
+            }
+
+            send({ type: 'step', content: '正在生成回應...' });
+
+            // Append function call and all function responses to contents
+            contents.push({
+              role: 'model',
+              parts: response.candidates[0].content.parts || []
+            } as any);
+            contents.push({
+              role: 'user',
+              parts: functionResponses as any
+            });
+
+            // Get the final response from the model
+            console.log('Generating consultant chat response...');
+            response = await generateConsultantChatResponse(contents, useProModel) ;
+            console.log('generateConsultantChatResponse input:', contents, useProModel);
+            console.log('generateConsultantChatResponse output:', response);
+
+            if (!response) {
+              throw new Error('AI 回應無效');
+            }
+
+            totalTokenUsage += response.usageMetadata?.totalTokenCount ?? 0;
+          }
+
+          // console.log('finial response:', response);
+
+          if (!response || !response.text) {
+              throw new Error('AI 回應無效');
+          }
+          // console.log('response.text: ', response.text);
 
           // Send response
           send({ type: 'response_chunk', content: response.text });
@@ -125,7 +234,7 @@ export async function POST(request: NextRequest) {
           // Add AI response to history
           fullConversationHistory.push({
             role: 'assistant',
-            content: response.text,
+            content: response.text ?? '',
             timestamp: new Date().toISOString()
           });
 

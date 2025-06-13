@@ -1,4 +1,4 @@
-import { GoogleGenAI } from '@google/genai';
+import { GoogleGenAI , FunctionCallingConfigMode , Type , GenerateContentResponse } from '@google/genai';
 
 /**
  * Gemini AI service for legal document processing
@@ -14,21 +14,6 @@ const MODELS = {
   PRO: 'gemini-2.5-pro-preview-05-06',
   EMBEDDING: 'gemini-embedding-exp-03-07'
 } as const;
-
-// System instruction for legal consultant
-const LEGAL_CONSULTANT_INSTRUCTION = `
-你是專業的澳門法律顧問AI助手。請遵循以下原則：
-
-1. 提供專業、準確的澳門法律建議
-2. 使用繁體中文回答
-3. 保持對話的連貫性和上下文理解
-4. 當需要更詳細的法律資訊時，主動詢問相關細節
-5. 引用相關的澳門法律條文和案例
-6. 保持專業但友善的語調
-7. 如果涉及複雜法律問題，建議尋求專業律師協助
-8. 基於對話歷史提供連貫的建議
-9. 如果信息不足，請說明限制並要求更多細節
-`;
 
 /**
  * Generate embeddings for text using Gemini embedding model
@@ -112,6 +97,15 @@ export async function generateSearchKeywords(query: string): Promise<{ keywords:
   }
 }
 
+export const searchResultsToMarkdown = (searchResults: Array<{ content: string; metadata: any; similarity: number }>): string => {
+  return searchResults
+      .map((result, index) => `
+文件 ${index + 1} / ${result.metadata.law_id} - ${result.metadata.title} / 第 ${result.metadata.loc.lines.from} 至 ${result.metadata.loc.lines.to} 行 / (相關度: ${Math.round(result.similarity * 100)}%):
+${result.content}
+---`)
+      .join('\n');
+}
+
 /**
  * Generate legal answer from search results using Gemini Flash
  * @param question - User's question
@@ -123,12 +117,7 @@ export async function generateLegalAnswer(
   searchResults: Array<{ content: string; metadata: any; similarity: number }>
 ): Promise<{ answer: string; tokenCount: number | undefined }> {
   try {
-    const context = searchResults
-      .map((result, index) => `
-文件 ${index + 1} (相關度: ${Math.round(result.similarity * 100)}%):
-${result.content}
----`)
-      .join('\n');
+    const context = searchResultsToMarkdown(searchResults);
 
     const prompt = `
 你是澳門法律專家AI助手。基於以下法律文件內容，回答用戶的法律問題。
@@ -228,45 +217,85 @@ export function countTokens(text: string): number {
   return Math.ceil(text.length / 4);
 }
 
+
+// System instruction for legal consultant
+const LEGAL_CONSULTANT_INSTRUCTION = `
+你是專業的澳門法律顧問AI助手。請遵循以下原則：
+
+1. 提供專業、準確的澳門法律建議
+2. 必需先在澳門法律知識庫中搜尋相關資訊
+3. 使用繁體中文回答
+4. 保持對話的連貫性和上下文理解
+5. 當需要更詳細的法律資訊時，主動詢問相關細節
+6. 引用相關的澳門法律條文和案例
+7. 保持專業但友善的語調
+8. 如果涉及複雜法律問題，建議尋求專業律師協助
+9. 基於對話歷史提供連貫的建議
+10. 如果信息不足，請說明限制並要求更多細節
+`;
+
+const SEARCH_MACAU_LEGAL_KB = {
+  name: "searchMacauLegalKnowledgeBase",
+  parameters: {
+    type: "object",
+    description:
+      "根據提供的關鍵字，從澳門法律知識庫中檢索相關的內容片段。適用於查詢澳門地區的法律資訊、法規條文或案例資料。",
+    properties: {
+      keywords: {
+        type: 'string',
+        description:
+          "用於查詢澳門法律知識庫的關鍵字或詞語。建議輸入與法律主題、條文名稱、法規或案例相關的詞彙。",
+      },
+    },
+    required: ["keywords"],
+  },
+};
+
+const CONSULTANT_CONFIG = {
+  systemInstruction: LEGAL_CONSULTANT_INSTRUCTION,
+  toolConfig: {
+    functionCallingConfig: {
+      mode: FunctionCallingConfigMode.AUTO,
+    },
+  },
+  tools: [
+    {
+      functionDeclarations: [
+        SEARCH_MACAU_LEGAL_KB,
+      ]
+    }
+  ],
+}
+
 /**
  * Generate consultant chat response using direct generateContent method
  * @param messages - Conversation history
  * @param useProModel - Whether to use Pro model
- * @returns Promise<{ text: string; totalTokenCount: number }> - AI response and token count
+ * @returns Promise< GenerateContentResponse > - AI response and token count
  */
 export async function generateConsultantChatResponse(
-  messages: Array<{ role: 'user' | 'model'; content: string }>,
+  contents: Array<{ role: 'user' | 'model'; parts: Array<{ text: string }> }>,
   useProModel: boolean = false
-): Promise<{ text: string; totalTokenCount: number }> {
+): Promise< GenerateContentResponse > {
   try {
     const modelName = useProModel ? MODELS.PRO : MODELS.FLASH;
     
-    console.log(`Generating consultant response with ${messages.length} messages in conversation history`);
-    
-    // Format messages for Gemini API - following the example pattern
-    const contents = messages.map(msg => ({
-      role: msg.role,
-      parts: [{ text: msg.content }]
-    }));
+    console.log(`Generating consultant response with ${contents.length} messages in conversation history`);
 
     const response = await ai.models.generateContent({
       model: modelName,
       contents: contents,
-      config: {
-        systemInstruction: LEGAL_CONSULTANT_INSTRUCTION
-      }
+      config: CONSULTANT_CONFIG,
     });
     
-    if (!response.text) {
-      throw new Error('Invalid response from Gemini API');
-    }
+    // if (!response.text) {
+    //   throw new Error('Invalid response from Gemini API');
+    // }
     
-    console.log(`Generated response with ${response.usageMetadata?.totalTokenCount || 0} tokens`);
+    // console.log(`Generated response with ${response.usageMetadata?.totalTokenCount || 0} tokens`);
     
-    return {
-      text: response.text,
-      totalTokenCount: response.usageMetadata?.totalTokenCount || 0
-    };
+    return response;
+    
   } catch (error) {
     console.error('Error generating consultant chat response:', error);
     throw new Error('Failed to generate consultant response');

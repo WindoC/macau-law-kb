@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import Navigation from '@/components/Navigation';
@@ -25,6 +25,13 @@ export default function ConsultantPage() {
   const [warning, setWarning] = useState<string | null>(null);
   const [currentStep, setCurrentStep] = useState('');
   const [streamingResponse, setStreamingResponse] = useState('');
+  const chatMessagesRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (chatMessagesRef.current) {
+      chatMessagesRef.current.scrollTop = chatMessagesRef.current.scrollHeight;
+    }
+  }, [messages, loading, streamingResponse]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -235,7 +242,7 @@ export default function ConsultantPage() {
             <div className="card" style={{height: '600px'}}>
               <div className="card-body d-flex flex-column">
                 {/* 對話區域 */}
-                <div className="flex-grow-1 overflow-auto mb-3" style={{maxHeight: '450px'}}>
+                <div className="flex-grow-1 overflow-auto mb-3" style={{maxHeight: '450px'}} ref={chatMessagesRef}>
                   {messages.length === 0 ? (
                     <div className="text-center text-muted py-5">
                       <i className="fas fa-comments fa-3x mb-3"></i>
