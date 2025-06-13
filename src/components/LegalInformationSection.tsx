@@ -6,8 +6,8 @@ export default function LegalInformationSection() {
       <Container>
         <Row className="text-center mb-5">
           <Col>
-            <h2 className="fw-bold">法律資訊與條款</h2>
-            <p className="text-muted">請詳閱以下重要法律文件</p>
+            <h2 className="fw-bold">條款與聲明</h2>
+            <p className="text-muted">請詳閱以下重要條款與聲明文件</p>
           </Col>
         </Row>
         <Row>

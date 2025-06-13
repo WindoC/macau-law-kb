@@ -199,7 +199,7 @@ export default function ConsultantPage() {
                   <i className="fas fa-user-tie fa-lg"></i>
                 </div>
                 <div>
-                  <h1 className="mb-1">法律顧問</h1>
+                  <h1 className="mb-1">法律諮詢</h1>
                   <p className="text-muted mb-0">與AI法律顧問進行深入對話，獲得專業建議</p>
                 </div>
               </div>
