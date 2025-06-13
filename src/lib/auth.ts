@@ -103,8 +103,8 @@ export async function authenticateRequest(request: NextRequest): Promise<AuthRes
     }
 
     // Create a fresh Supabase client for token validation
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'your_supabase_url';
-    const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'your_supabase_anon_key';
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
     
     const supabase = createClient(supabaseUrl, supabaseAnonKey);
     
