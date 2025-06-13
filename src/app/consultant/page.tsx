@@ -188,11 +188,11 @@ export default function ConsultantPage() {
   };
 
   return (
-    <>
+    <div className="d-flex flex-column" style={{height: '100vh'}}>
       <Navigation />
-      <div className="container mt-4">
-        <div className="row">
-          <div className="col-12">
+      <div className="container mt-4 flex-grow-1 d-flex flex-column">
+        <div className="row flex-grow-1">
+          <div className="col-12 d-flex flex-column">
             <div className="d-flex align-items-center justify-content-between mb-4">
               <div className="d-flex align-items-center">
                 <div className="bg-warning text-white rounded-circle d-inline-flex align-items-center justify-content-center me-3" style={{width: '50px', height: '50px'}}>
@@ -204,7 +204,7 @@ export default function ConsultantPage() {
                 </div>
               </div>
               <div>
-                <button 
+                <button
                   className="btn btn-outline-warning me-2"
                   onClick={copyConversation}
                   disabled={messages.length === 0}
@@ -212,7 +212,7 @@ export default function ConsultantPage() {
                   <i className="fas fa-copy me-1"></i>
                   複製對話
                 </button>
-                <button 
+                <button
                   className="btn btn-warning"
                   onClick={startNewConversation}
                   disabled={loading}
@@ -239,10 +239,10 @@ export default function ConsultantPage() {
               </div>
             )}
 
-            <div className="card" style={{height: '600px'}}>
-              <div className="card-body d-flex flex-column">
-                {/* 對話區域 */}
-                <div className="flex-grow-1 overflow-auto mb-3" style={{maxHeight: '450px'}} ref={chatMessagesRef}>
+            {/* 對話區域 - 填滿剩餘空間 */}
+            <div className="card flex-grow-1 d-flex flex-column mb-3">
+              <div className="card-body d-flex flex-column p-3">
+                <div className="flex-grow-1 overflow-auto" ref={chatMessagesRef}>
                   {messages.length === 0 ? (
                     <div className="text-center text-muted py-5">
                       <i className="fas fa-comments fa-3x mb-3"></i>
@@ -345,39 +345,40 @@ export default function ConsultantPage() {
                     </div>
                   )}
                 </div>
-
-                {/* 輸入區域 */}
-                <form onSubmit={handleSubmit}>
-                  <div className="input-group">
-                    <textarea
-                      className="form-control"
-                      placeholder="輸入您的法律問題... (按Enter發送，Shift+Enter換行)"
-                      value={input}
-                      onChange={(e) => setInput(e.target.value)}
-                      onKeyPress={handleKeyPress}
-                      disabled={loading}
-                      rows={2}
-                      style={{resize: 'none'}}
-                    />
-                    <button 
-                      className="btn btn-warning" 
-                      type="submit"
-                      disabled={loading || !input.trim()}
-                    >
-                      {loading ? (
-                        <span className="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
-                      ) : (
-                        <>
-                          <i className="fas fa-paper-plane me-1"></i>
-                          發送
-                        </>
-                      )}
-                    </button>
-                  </div>
-                </form>
               </div>
             </div>
 
+            {/* 輸入區域 - 移到底部 */}
+            <form onSubmit={handleSubmit} className="mt-3">
+              <div className="input-group">
+                <textarea
+                  className="form-control"
+                  placeholder="輸入您的法律問題... (按Enter發送，Shift+Enter換行)"
+                  value={input}
+                  onChange={(e) => setInput(e.target.value)}
+                  onKeyPress={handleKeyPress}
+                  disabled={loading}
+                  rows={2}
+                  style={{resize: 'none'}}
+                />
+                <button
+                  className="btn btn-warning"
+                  type="submit"
+                  disabled={loading || !input.trim()}
+                >
+                  {loading ? (
+                    <span className="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+                  ) : (
+                    <>
+                      <i className="fas fa-paper-plane me-1"></i>
+                      發送
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
+
+            {/* 警告提醒 - 移到底部 */}
             <div className="alert alert-warning mt-3">
               <i className="fas fa-exclamation-triangle me-2"></i>
               <strong>重要提醒:</strong> AI顧問提供的建議僅供參考，不構成正式法律意見。如需專業法律服務，請諮詢合格律師。對話內容可能會被記錄用於改善服務品質。
@@ -385,6 +386,6 @@ export default function ConsultantPage() {
           </div>
         </div>
       </div>
-    </>
+    </div>
   );
 }
