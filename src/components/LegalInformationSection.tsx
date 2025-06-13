@@ -55,11 +55,10 @@ export default function LegalInformationSection() {
                     </ul>
 
                     <h4>4. 服務等級與費用</h4>
-                    <p>本平台提供「免費」、「付費」及「VIP」三種用戶層級，每一層級具不同功能限制與 Token 使用配額：</p>
+                    <p>本平台提供「免費」及「付費」兩種用戶層級，每一層級具不同功能限制與 Token 使用配額：</p>
                     <ul>
                       <li>免費用戶每月可獲得基本 Token 額度；</li>
-                      <li>付費用戶可根據金額購買額外 Token 並解鎖更多功能；</li>
-                      <li>VIP 用戶可使用高階模型，享有更高 Token 配額與優先處理權限。</li>
+                      <li>付費用戶可根據金額購買額外 Token 並解鎖顧問功能。</li>
                     </ul>
                     <p>Token 計價與配額使用政策將於網站上另行公告，並可由平台隨時修改。</p>
 
@@ -103,6 +102,7 @@ export default function LegalInformationSection() {
                       <li><strong>Google Gemini AI</strong>（AI 回應生成）</li>
                       <li><strong>Supabase</strong>（身份驗證與資料儲存）</li>
                       <li><strong>Cloudflare CAPTCHA</strong>（濫用防護）等</li>
+                      <li><strong>Vercel</strong>（平台部署與內容交付）</li>
                     </ul>
                     <p>我們對上述第三方服務之可用性、安全性與正確性不提供保證。</p>
                   </div>
@@ -134,7 +134,6 @@ export default function LegalInformationSection() {
                     <h5>使用記錄：</h5>
                     <ul>
                       <li>查詢輸入（法律檢索、問答、顧問）；</li>
-                      <li>回應所依據的相關文件 ID（不儲存原始內容）；</li>
                       <li>AI 生成的回答（法律問答、顧問）；</li>
                       <li>法律顧問模組下的對話歷史；</li>
                     </ul>
@@ -157,9 +156,8 @@ export default function LegalInformationSection() {
                     <h4>3. 數據儲存與安全</h4>
                     <ul>
                       <li>所有資料儲存於 Supabase，並採用 <strong>行級存取控制（RLS）</strong> 保護每位用戶資料；</li>
-                      <li>僅授權用戶與管理員可檢視所屬使用記錄；</li>
-                      <li>使用 JWT 驗證與 CSRF Token 提供 API 安全防護；</li>
-                      <li>所有敏感資料（如 API 金鑰）僅儲存於後端，不會暴露於用戶端程式碼中。</li>
+                      <li>僅授權的管理人員可檢視使用記錄；</li>
+                      <li>使用 JWT 驗證與 CSRF Token 提供 API 安全防護。</li>
                     </ul>
 
                     <h4>4. 第三方資料處理</h4>
