@@ -8,14 +8,14 @@ import {
   hasFeatureAccess,
   hasTokens,
   canUseProModel,
-  createErrorResponse,
-  createSuccessResponse
+  createErrorResponse
 } from '@/lib/auth-client';
 import { generateConsultantChatResponse, countTokens , generateEmbedding , searchResultsToMarkdown } from '@/lib/gemini';
 import { saveConversation, updateTokenUsage , searchDocuments } from '@/lib/database';
-import { supabase } from '@/lib/supabase';
 
-export const runtime = 'edge';
+// Temporarily disable Edge Runtime due to jsonwebtoken dependency
+// export const runtime = 'edge';
+export const runtime = 'nodejs';
 
 /**
  * Legal Consultant API endpoint with streaming
@@ -116,7 +116,7 @@ export async function POST(request: NextRequest) {
           }));
 
           console.log('Generating consultant chat response...');
-          var response = await generateConsultantChatResponse(contents, useProModel) ;
+          let response = await generateConsultantChatResponse(contents, useProModel) ;
           console.log('generateConsultantChatResponse input:', contents, useProModel);
           console.log('generateConsultantChatResponse output:', response);
 

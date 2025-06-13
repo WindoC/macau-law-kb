@@ -12,7 +12,6 @@ import {
 } from '@/lib/auth-client';
 import { generateEmbedding, generateSearchKeywords, countTokens } from '@/lib/gemini';
 import { searchDocuments, saveSearchHistory, updateTokenUsage } from '@/lib/database';
-import { supabase } from '@/lib/supabase';
 
 /**
  * Legal Search API endpoint

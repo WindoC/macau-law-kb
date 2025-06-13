@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 import type { User } from '@supabase/supabase-js'
 
@@ -47,9 +48,9 @@ export default function Navigation() {
     return (
       <nav className="navbar navbar-expand-lg navbar-dark bg-primary">
         <div className="container">
-          <a className="navbar-brand fw-bold" href="/">
+          <Link className="navbar-brand fw-bold" href="/">
             澳門法律知識庫
-          </a>
+          </Link>
           <div className="navbar-nav ms-auto">
             <div className="spinner-border spinner-border-sm text-light" role="status">
               <span className="visually-hidden">載入中...</span>
@@ -64,11 +65,11 @@ export default function Navigation() {
     return (
       <nav className="navbar navbar-expand-lg navbar-dark bg-primary">
         <div className="container">
-          <a className="navbar-brand fw-bold" href="/">
+          <Link className="navbar-brand fw-bold" href="/">
             澳門法律知識庫
-          </a>
+          </Link>
           <div className="navbar-nav ms-auto">
-            <a className="nav-link" href="/">登入</a>
+            <Link className="nav-link" href="/">登入</Link>
           </div>
         </div>
       </nav>
@@ -78,9 +79,9 @@ export default function Navigation() {
   return (
     <nav className="navbar navbar-expand-lg navbar-dark bg-primary">
       <div className="container">
-        <a className="navbar-brand fw-bold" href="/">
+        <Link className="navbar-brand fw-bold" href="/">
           澳門法律知識庫
-        </a>
+        </Link>
         
         <button 
           className="navbar-toggler" 

@@ -1,7 +1,8 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { Container, Row, Col, Card, Button, Alert, Accordion } from 'react-bootstrap'
+import Link from 'next/link'
+import { Container, Row, Col, Card, Button } from 'react-bootstrap'
 import { supabase } from '@/lib/supabase'
 import type { User } from '@supabase/supabase-js'
 import CaptchaWidget from '@/components/CaptchaWidget'
@@ -297,9 +298,9 @@ function DashboardPage({ user }: { user: User }) {
       {/* Navigation */}
       <nav className="navbar navbar-expand-lg navbar-dark bg-primary">
         <Container>
-          <a className="navbar-brand fw-bold" href="/">
+          <Link className="navbar-brand fw-bold" href="/">
             澳門法律知識庫
-          </a>
+          </Link>
           <div className="navbar-nav ms-auto">
             <div className="nav-item dropdown">
               <a

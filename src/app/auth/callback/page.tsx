@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 import { Container, Alert, Spinner } from 'react-bootstrap'
 import { supabase } from '@/lib/supabase'
 
@@ -63,9 +64,9 @@ export default function AuthCallbackPage() {
           <p>{error}</p>
           <hr />
           <div className="d-flex justify-content-center">
-            <a href="/" className="btn btn-primary">
+            <Link href="/" className="btn btn-primary">
               返回首頁
-            </a>
+            </Link>
           </div>
         </Alert>
       </Container>

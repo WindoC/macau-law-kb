@@ -1,11 +1,10 @@
-import { NextRequest } from 'next/server';
 import { supabase } from '@/lib/supabase';
 
 /**
  * POST /api/auth/logout
  * Log out the current user
  */
-export async function POST(request: NextRequest) {
+export async function POST() {
   try {
     const { error } = await supabase.auth.signOut();
     
