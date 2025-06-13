@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 import type { User } from '@supabase/supabase-js'
+import { useRouter } from 'next/navigation';
 
 /**
  * Navigation component for authenticated users
@@ -12,6 +13,7 @@ import type { User } from '@supabase/supabase-js'
 export default function Navigation() {
   const [user, setUser] = useState<User | null>(null)
   const [loading, setLoading] = useState(true)
+  const router = useRouter();
 
   useEffect(() => {
     // Get initial session
@@ -33,7 +35,8 @@ export default function Navigation() {
 
   const handleLogout = async () => {
     try {
-      const { error } = await supabase.auth.signOut()
+      const { error } = await supabase.auth.signOut();
+      router.push('/');
       if (error) {
         console.error('Logout error:', error)
         alert('登出失敗，請稍後再試')
