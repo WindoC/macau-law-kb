@@ -242,7 +242,7 @@ export default function ConsultantPage() {
             {/* 對話區域 - 填滿剩餘空間 */}
             <div className="card flex-grow-1 d-flex flex-column mb-3">
               <div className="card-body d-flex flex-column p-3">
-                <div className="flex-grow-1 overflow-auto" ref={chatMessagesRef}>
+                <div className="flex-grow-1 overflow-auto">
                   {messages.length === 0 ? (
                     <div className="text-center text-muted py-5">
                       <i className="fas fa-comments fa-3x mb-3"></i>
@@ -270,7 +270,7 @@ export default function ConsultantPage() {
                       </div>
                     </div>
                   ) : (
-                    <div className="chat-messages">
+                    <div className="chat-messages" ref={chatMessagesRef} style={{maxHeight: 'calc(100vh - 300px)', overflowY: 'auto'}}>
                       {messages.map((message) => (
                         <div key={message.id} className={`mb-3 d-flex ${message.role === 'user' ? 'justify-content-end' : 'justify-content-start'}`}>
                           <div className={`card ${message.role === 'user' ? 'bg-primary text-white' : 'bg-light'}`} style={{maxWidth: '80%'}}>
