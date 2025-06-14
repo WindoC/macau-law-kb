@@ -270,7 +270,7 @@ export default function ConsultantPage() {
                       </div>
                     </div>
                   ) : (
-                    <div className="chat-messages" ref={chatMessagesRef} style={{maxHeight: 'calc(100vh - 300px)', overflowY: 'auto'}}>
+                    <div className="chat-messages" ref={chatMessagesRef} style={{maxHeight: 'calc(100vh - 330px)', overflowY: 'auto'}}>
                       {messages.map((message) => (
                         <div key={message.id} className={`mb-3 d-flex ${message.role === 'user' ? 'justify-content-end' : 'justify-content-start'}`}>
                           <div className={`card ${message.role === 'user' ? 'bg-primary text-white' : 'bg-light'}`} style={{maxWidth: '80%'}}>
