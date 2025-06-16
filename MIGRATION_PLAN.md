@@ -965,183 +965,171 @@ npm run db:setup
 - ✅ **Loading States**: Proper loading indicators throughout the application
 - ✅ **Route Protection**: HOC-based route protection for authenticated pages
 
-## Phase 10: Supporting Services
+## Phase 10: Supporting Services ✅ COMPLETED
 
-### 10.1 Embedding Service (`src/lib/embeddings.ts`)
-```typescript
-import { GoogleGenerativeAI } from '@google/generative-ai';
+### 10.1 AI Service Layer ✅ IMPLEMENTED
+- ✅ **Comprehensive Gemini AI Service** (`webapp/src/lib/gemini.ts`)
+  - Complete implementation with **integrated embedding generation** using `text-embedding-004`
+  - Function calling capabilities for dynamic document search
+  - Streaming response handling for real-time consultation
+  - Multiple model support (Flash, Pro) with automatic fallback
+  - Robust error handling and retry logic
+  - Search keyword extraction and legal answer generation
+  - Token usage estimation and tracking
+  - **Built-in embedding utilities** - no separate embedding service needed
 
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
+### 10.2 Database Service Layer ✅ IMPLEMENTED
+- ✅ **Core Database Manager** (`webapp/src/lib/db.ts`)
+  - Singleton pattern with PostgreSQL connection pooling
+  - Transaction management with automatic rollback
+  - Health check and monitoring capabilities
+  - Proper TypeScript typing with QueryResultRow constraints
+  - Connection error handling and logging
 
-export async function generateEmbedding(text: string): Promise<number[]> {
-  try {
-    const model = genAI.getGenerativeModel({ model: 'text-embedding-004' });
-    const result = await model.embedContent(text);
-    return result.embedding.values;
-  } catch (error) {
-    console.error('Embedding generation error:', error);
-    throw new Error('Failed to generate embedding');
-  }
-}
-```
+- ✅ **Application Database Service** (`webapp/src/lib/database-new.ts`)
+  - User management and authentication functions
+  - Document operations with vector similarity search
+  - Consultation and conversation management
+  - Token usage tracking and credits system
+  - Search history and Q&A tracking
+  - Analytics and reporting functions
+  - Transaction-based operations for data integrity
 
-### 10.2 AI Service (`src/lib/ai-service.ts`)
-```typescript
-import { GoogleGenerativeAI } from '@google/generative-ai';
-import { searchDocuments } from './database';
+### 10.3 Authentication Service ✅ IMPLEMENTED
+- ✅ **OIDC Provider Management** (`webapp/src/lib/oidc-providers.ts`)
+  - Google OIDC and GitHub OAuth2 configuration
+  - Discovery document fetching capabilities
+  - Provider initialization and management
+  - Environment-based configuration
 
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
+- ✅ **Authentication Service** (`webapp/src/lib/auth-service.ts`)
+  - JWT token generation and validation with proper claims
+  - OAuth state and nonce generation for security
+  - OIDC callback handling for both Google and GitHub
+  - User creation and profile management with database integration
+  - Token refresh functionality with automatic user lookup
+  - Secure session management with proper error handling
 
-interface Message {
-  role: 'user' | 'assistant';
-  content: string;
-}
+### 10.4 Utility Services ✅ IMPLEMENTED
+- ✅ **Configuration Management**
+  - Environment variable handling for all services
+  - Provider-specific configurations (Google, GitHub)
+  - Database connection settings with SSL support
+  - JWT configuration with proper expiration times
 
-export async function generateResponse(
-  messages: Message[],
-  model: string = 'gemini-2.5-flash-preview-05-20'
-): Promise<{ response: string; actualTokens: number; documentIds: number[] }> {
-  try {
-    const lastUserMessage = messages.filter(m => m.role === 'user').pop();
-    if (!lastUserMessage) {
-      throw new Error('No user message found');
-    }
-    
-    // Generate embedding and search for relevant documents
-    const { generateEmbedding } = await import('./embeddings');
-    const embedding = await generateEmbedding(lastUserMessage.content);
-    
-    // Mock session for document search (in real implementation, pass actual session)
-    const mockSession = { userId: 'system', email: 'system', role: 'system', provider: 'system' };
-    const relevantDocs = await searchDocuments(mockSession, embedding, 5);
-    
-    // Prepare context from relevant documents
-    const context = relevantDocs.map(doc => 
-      `文件 ${doc.id}: ${doc.content.substring(0, 500)}...`
-    ).join('\n\n');
-    
-    // Prepare conversation history
-    const conversationHistory = messages.map(msg => 
-      `${msg.role === 'user' ? '用戶' : '助手'}: ${msg.content}`
-    ).join('\n');
-    
-    const prompt = `
-你是澳門法律知識庫的AI助手。請根據以下相關法律文件和對話歷史，回答用戶的問題。
+- ✅ **Error Handling Utilities**
+  - Comprehensive error catching and logging throughout all services
+  - User-friendly error messages for authentication failures
+  - Transaction rollback on database failures
+  - Graceful degradation for AI service failures
 
-相關法律文件：
-${context}
+- ✅ **Health Check Capabilities**
+  - Database connection monitoring and status reporting
+  - Connection pool status tracking
+  - Service availability checks for all components
+  - Automatic error recovery mechanisms
 
-對話歷史：
-${conversationHistory}
+### 10.5 Key Features Implemented
+- ✅ **Vector Search Integration**: Direct PostgreSQL vector operations with embedding support
+- ✅ **Function Calling**: Advanced AI function calling for dynamic document search
+- ✅ **Streaming Responses**: Real-time streaming for AI consultation endpoints
+- ✅ **Token Management**: Comprehensive token usage tracking and credit system
+- ✅ **Session Security**: HTTP-only cookies with proper expiration and refresh
+- ✅ **Provider Flexibility**: Support for multiple OIDC providers with extensible architecture
+- ✅ **Database Transactions**: ACID compliance for all critical operations
+- ✅ **Error Recovery**: Robust error handling with automatic retry and fallback mechanisms
 
-請提供準確、專業的法律建議，並引用相關的法律條文。如果問題超出澳門法律範圍，請說明並建議諮詢專業律師。
-`;
-    
-    const aiModel = genAI.getGenerativeModel({ model });
-    const result = await aiModel.generateContent(prompt);
-    const response = result.response.text();
-    
-    // Estimate token usage (rough calculation)
-    const actualTokens = Math.ceil((prompt.length + response.length) / 4);
-    const documentIds = relevantDocs.map(doc => doc.id);
-    
-    return {
-      response,
-      actualTokens,
-      documentIds
-    };
-  } catch (error) {
-    console.error('AI response generation error:', error);
-    throw new Error('Failed to generate AI response');
-  }
-}
-```
+## Phase 11: Testing Strategy ✅ COMPLETED
 
-## Phase 11: Testing Strategy
+### 11.1 Test Infrastructure ✅ IMPLEMENTED
+- ✅ **Test Setup Configuration** (`webapp/tests/setup.ts`)
+  - Environment variable mocking for testing
+  - Global test timeout and cleanup
+  - Mock console methods and fetch API
+  - Proper TypeScript configuration
 
-### 11.1 Database Connection Tests (`tests/db.test.ts`)
-```typescript
-import { db } from '@/lib/db';
+- ✅ **Jest Configuration** (`webapp/jest.config.js`)
+  - Next.js integration with custom config
+  - TypeScript and React testing support
+  - Coverage thresholds and reporting
+  - Module name mapping and path aliases
+  - Test file patterns and ignore rules
 
-describe('Database Connection', () => {
-  beforeAll(async () => {
-    // Setup test database if needed
-  });
-  
-  afterAll(async () => {
-    await db.close();
-  });
-  
-  test('should connect to database', async () => {
-    const isHealthy = await db.healthCheck();
-    expect(isHealthy).toBe(true);
-  });
-  
-  test('should execute simple query', async () => {
-    const result = await db.query('SELECT 1 as test');
-    expect(result).toHaveLength(1);
-    expect(result[0].test).toBe(1);
-  });
-  
-  test('should handle transactions', async () => {
-    const result = await db.transaction(async (client) => {
-      const [row] = await client.query('SELECT 1 as test');
-      return row.test;
-    });
-    
-    expect(result).toBe(1);
-  });
-});
-```
+### 11.2 Database Layer Tests ✅ IMPLEMENTED
+- ✅ **Core Database Tests** (`webapp/tests/db.test.ts`)
+  - Connection pooling and singleton pattern testing
+  - Query execution with parameterized queries
+  - Transaction management with rollback testing
+  - Health check functionality
+  - Error handling and logging verification
+  - Pool status monitoring
 
-### 11.2 Authentication Tests (`tests/auth.test.ts`)
-```typescript
-import { authService } from '@/lib/auth-service';
-import { SessionManager } from '@/lib/session';
+### 11.3 Authentication Service Tests ✅ IMPLEMENTED
+- ✅ **Authentication Tests** (`webapp/tests/auth-service.test.ts`)
+  - JWT token generation and validation
+  - OIDC callback handling for Google and GitHub
+  - User creation and profile management
+  - Token refresh functionality
+  - OAuth state and nonce generation
+  - Error handling for authentication failures
+  - User lookup and management operations
 
-describe('Authentication Service', () => {
-  test('should generate valid JWT tokens', () => {
-    const mockUser = {
-      id: 'test-user-id',
-      email: 'test@example.com',
-      role: 'free' as const,
-      provider: 'google',
-      name: 'Test User',
-      avatar_url: null,
-      provider_id: 'google-123',
-      created_at: new Date(),
-      updated_at: new Date(),
-    };
-    
-    const tokens = authService.generateTokens(mockUser);
-    
-    expect(tokens.accessToken).toBeDefined();
-    expect(tokens.refreshToken).toBeDefined();
-    expect(tokens.user).toEqual(mockUser);
-  });
-  
-  test('should verify valid tokens', () => {
-    const mockUser = {
-      id: 'test-user-id',
-      email: 'test@example.com',
-      role: 'free' as const,
-      provider: 'google',
-      name: 'Test User',
-      avatar_url: null,
-      provider_id: 'google-123',
-      created_at: new Date(),
-      updated_at: new Date(),
-    };
-    
-    const tokens = authService.generateTokens(mockUser);
-    const payload = authService.verifyToken(tokens.accessToken);
-    
-    expect(payload.userId).toBe(mockUser.id);
-    expect(payload.email).toBe(mockUser.email);
-    expect(payload.role).toBe(mockUser.role);
-  });
-});
-```
+### 11.4 Database Service Tests ✅ IMPLEMENTED
+- ✅ **Application Database Tests** (`webapp/tests/database-service.test.ts`)
+  - Document vector search functionality
+  - Search and Q&A history tracking
+  - Conversation management and message storage
+  - User profile and token management
+  - Law document retrieval
+  - Error handling and data validation
+  - Transaction-based operations testing
+
+### 11.5 AI Service Tests ✅ IMPLEMENTED
+- ✅ **Gemini AI Tests** (`webapp/tests/gemini.test.ts`)
+  - Embedding generation with proper API mocking
+  - Search keyword extraction and filtering
+  - Legal answer generation with context
+  - Consultant response generation (basic and chat)
+  - Token counting and estimation
+  - Search results to markdown conversion
+  - Error handling and API failure scenarios
+  - Model configuration validation
+
+### 11.6 API Integration Tests ✅ IMPLEMENTED
+- ✅ **API Routes Tests** (`webapp/tests/api-routes.test.ts`)
+  - Session management and authentication flow
+  - Role-based access control testing
+  - Cookie management and security settings
+  - Request validation and error handling
+  - Token expiration and refresh scenarios
+  - CORS and security headers validation
+  - Production vs development environment handling
+
+### 11.7 Test Coverage and Quality ✅ IMPLEMENTED
+- ✅ **Coverage Thresholds**
+  - Global coverage: 70% (branches, functions, lines, statements)
+  - Critical files: 75-80% coverage requirements
+  - Authentication service: 80% coverage
+  - Database layer: 80% coverage
+  - Application services: 75% coverage
+
+- ✅ **Test Quality Features**
+  - Comprehensive mocking of external dependencies
+  - Error scenario testing and edge cases
+  - Integration testing for API workflows
+  - Security testing for authentication flows
+  - Performance considerations in test design
+  - Proper cleanup and test isolation
+
+### 11.8 Key Testing Features Implemented
+- ✅ **Mock Management**: Comprehensive mocking of all external services
+- ✅ **Error Testing**: Extensive error handling and edge case coverage
+- ✅ **Security Testing**: Authentication, authorization, and cookie security
+- ✅ **Integration Testing**: End-to-end API workflow testing
+- ✅ **Performance Testing**: Database connection pooling and transaction testing
+- ✅ **Type Safety**: Full TypeScript support in all test files
+- ✅ **CI/CD Ready**: Jest configuration optimized for continuous integration
+- ✅ **Documentation**: Clear test descriptions and comprehensive coverage
 
 ## Phase 12: Environment Setup
 
