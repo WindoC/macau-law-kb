@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { SessionManager } from '@/lib/session';
 
 // Define protected paths that require authentication
 const protectedPaths = [
@@ -59,86 +58,34 @@ export async function middleware(request: NextRequest) {
   const isProtectedPath = protectedPaths.some(path => pathname.startsWith(path));
   
   if (isProtectedPath) {
-    try {
-      // Get session from request
-      const session = await SessionManager.getSession(request);
-      
-      if (!session) {
-        // Handle unauthenticated requests
-        if (pathname.startsWith('/api/')) {
-          // Return 401 for API routes
-          return NextResponse.json(
-            { 
-              error: 'Authentication required',
-              message: 'Please log in to access this resource.'
-            }, 
-            { status: 401 }
-          );
-        } else {
-          // Redirect to login for page routes
-          const loginUrl = new URL('/auth/login', request.url);
-          loginUrl.searchParams.set('redirect', pathname);
-          return NextResponse.redirect(loginUrl);
-        }
-      }
-      
-      // For API routes, add session information to headers for easy access
+    // TEMPORARY: Skip authentication in middleware due to Edge Runtime limitations
+    // JWT verification requires Node.js crypto module which isn't available in Edge Runtime
+    // TODO: Implement Edge-compatible authentication or move to API routes
+    
+    const accessToken = request.cookies.get('access_token')?.value;
+    
+    if (!accessToken) {
+      // Handle unauthenticated requests
       if (pathname.startsWith('/api/')) {
-        const response = NextResponse.next();
-        response.headers.set('x-user-id', session.userId);
-        response.headers.set('x-user-email', session.email);
-        response.headers.set('x-user-role', session.role);
-        response.headers.set('x-user-provider', session.provider);
-        return response;
-      }
-      
-      // Check role-based access for specific routes
-      if (pathname.startsWith('/admin') && session.role !== 'admin') {
-        if (pathname.startsWith('/api/admin')) {
-          return NextResponse.json(
-            { 
-              error: 'Insufficient permissions',
-              message: 'Admin access required.'
-            }, 
-            { status: 403 }
-          );
-        } else {
-          return NextResponse.redirect(new URL('/dashboard', request.url));
-        }
-      }
-      
-      // Check VIP access for premium features
-      if (pathname.startsWith('/premium') && !['admin', 'vip', 'pay'].includes(session.role)) {
-        if (pathname.startsWith('/api/premium')) {
-          return NextResponse.json(
-            { 
-              error: 'Premium access required',
-              message: 'Please upgrade to access premium features.'
-            }, 
-            { status: 402 }
-          );
-        } else {
-          const upgradeUrl = new URL('/upgrade', request.url);
-          upgradeUrl.searchParams.set('feature', 'premium');
-          return NextResponse.redirect(upgradeUrl);
-        }
-      }
-    } catch (error) {
-      console.error('Middleware authentication error:', error);
-      
-      // Handle middleware errors gracefully
-      if (pathname.startsWith('/api/')) {
+        // Return 401 for API routes
         return NextResponse.json(
-          { 
-            error: 'Authentication service error',
-            message: 'Please try again later.'
-          }, 
-          { status: 503 }
+          {
+            error: 'Authentication required',
+            message: 'Please log in to access this resource.'
+          },
+          { status: 401 }
         );
       } else {
-        return NextResponse.redirect(new URL('/auth/error', request.url));
+        // Redirect to login for page routes
+        const loginUrl = new URL('/auth/login', request.url);
+        loginUrl.searchParams.set('redirect', pathname);
+        return NextResponse.redirect(loginUrl);
       }
     }
+    
+    // If token exists, allow request to proceed
+    // Authentication verification will happen in API routes using Node.js runtime
+    console.log('TEMPORARY: Allowing request with token to proceed, verification deferred to API routes');
   }
   
   return NextResponse.next();
