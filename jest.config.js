@@ -5,9 +5,8 @@ const createJestConfig = nextJest({
 });
 
 const customJestConfig = {
-  setupFilesAfterEnv: ['<rootDir>/jest.setup.js'],
   testEnvironment: 'jest-environment-jsdom',
-  moduleNameMapping: {
+  moduleNameMapper: {
     '^@/(.*)$': '<rootDir>/src/$1',
   },
   testMatch: [
@@ -27,6 +26,13 @@ const customJestConfig = {
       statements: 70,
     },
   },
+  transform: {
+    '^.+\\.(ts|tsx)$': ['ts-jest', {
+      tsconfig: {
+        jsx: 'react-jsx',
+      },
+    }],
+  },
   // Use different test environments for different test types
   projects: [
     {
@@ -36,7 +42,16 @@ const customJestConfig = {
         '<rootDir>/src/app/**/*.test.{js,jsx,ts,tsx}',
         '<rootDir>/src/components/**/*.test.{js,jsx,ts,tsx}',
       ],
-      setupFilesAfterEnv: ['<rootDir>/jest.setup.js'],
+      transform: {
+        '^.+\\.(ts|tsx)$': ['ts-jest', {
+          tsconfig: {
+            jsx: 'react-jsx',
+          },
+        }],
+      },
+      moduleNameMapper: {
+        '^@/(.*)$': '<rootDir>/src/$1',
+      },
     },
     {
       displayName: 'server',
@@ -44,7 +59,16 @@ const customJestConfig = {
       testMatch: [
         '<rootDir>/src/lib/**/*.test.{js,ts}',
       ],
-      setupFilesAfterEnv: ['<rootDir>/jest.setup.node.js'],
+      transform: {
+        '^.+\\.(ts|tsx)$': ['ts-jest', {
+          tsconfig: {
+            module: 'commonjs',
+          },
+        }],
+      },
+      moduleNameMapper: {
+        '^@/(.*)$': '<rootDir>/src/$1',
+      },
     },
   ],
 };
