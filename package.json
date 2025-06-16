@@ -1,9 +1,9 @@
 {
-  "name": "webapp",
-  "version": "0.1.0",
+  "name": "macau-law-kb",
+  "version": "2.0.0",
   "private": true,
   "scripts": {
-    "dev": "next dev --turbopack",
+    "dev": "next dev",
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
@@ -14,7 +14,10 @@
     "db:migrate": "node scripts/migrate.js",
     "db:seed": "node scripts/seed.js",
     "db:setup": "npm run db:migrate && npm run db:seed",
-    "db:health": "node scripts/health-check.js"
+    "db:health": "node scripts/health-check.js",
+    "setup:env": "node scripts/setup-env.js create",
+    "validate:env": "node scripts/setup-env.js validate",
+    "setup": "npm run setup:env && npm run db:setup"
   },
   "dependencies": {
     "@google/genai": "^1.4.0",
