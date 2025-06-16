@@ -1,52 +1,21 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import Link from 'next/link'
 import { Container, Row, Col, Card, Button } from 'react-bootstrap'
+import { useAuth } from '@/contexts/AuthContext'
+import { CompactLoginForm } from '@/components/auth/LoginForm'
+import { UserInfo } from '@/components/auth/UserProfile'
 import CaptchaWidget from '@/components/CaptchaWidget'
 import { validateCaptchaToken, CAPTCHA_ERRORS } from '@/lib/captcha'
 import LegalInformationSection from '@/components/LegalInformationSection'
-
-interface User {
-  id: string
-  email: string
-  name?: string
-  avatar_url?: string
-  provider: string
-}
 
 /**
  * Main landing page component
  * Shows different content based on authentication status
  */
 export default function HomePage() {
-  const [user, setUser] = useState<User | null>(null)
-  const [loading, setLoading] = useState(true)
-
-  useEffect(() => {
-    // Check authentication status
-    checkAuthStatus()
-  }, [])
-
-  const checkAuthStatus = async () => {
-    try {
-      const response = await fetch('/api/profile', {
-        credentials: 'include'
-      })
-      
-      if (response.ok) {
-        const userData = await response.json()
-        setUser(userData)
-      } else {
-        setUser(null)
-      }
-    } catch (error) {
-      console.error('Auth check error:', error)
-      setUser(null)
-    } finally {
-      setLoading(false)
-    }
-  }
+  const { user, loading } = useAuth()
 
   if (loading) {
     return (
@@ -62,7 +31,7 @@ export default function HomePage() {
     return <LandingPage />
   }
 
-  return <DashboardPage user={user} />
+  return <DashboardPage />
 }
 
 /**
@@ -281,21 +250,16 @@ function LandingPage() {
 /**
  * Dashboard page for authenticated users
  */
-function DashboardPage({ user }: { user: User }) {
+function DashboardPage() {
+  const { user, logout } = useAuth()
+
+  if (!user) {
+    return null
+  }
+
   const handleLogout = async () => {
     try {
-      const response = await fetch('/api/auth/logout', {
-        method: 'POST',
-        credentials: 'include'
-      })
-      
-      if (response.ok) {
-        // Redirect to home page after successful logout
-        window.location.href = '/'
-      } else {
-        console.error('Logout failed')
-        alert('登出失敗，請稍後再試')
-      }
+      await logout()
     } catch (error) {
       console.error('Logout error:', error)
       alert('登出失敗，請稍後再試')

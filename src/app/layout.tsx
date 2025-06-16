@@ -3,6 +3,7 @@ import { Inter } from 'next/font/google'
 import 'bootstrap/dist/css/bootstrap.min.css'
 import './globals.css'
 import BootstrapProvider from '@/components/BootstrapProvider'
+import { AuthProvider } from '@/contexts/AuthContext'
 
 const inter = Inter({ subsets: ['latin'] })
 
@@ -20,7 +21,7 @@ export const viewport = {
 
 /**
  * Root layout component for the application
- * Provides global styles and Bootstrap integration
+ * Provides global styles, Bootstrap integration, and authentication context
  */
 export default function RootLayout({
   children,
@@ -32,12 +33,21 @@ export default function RootLayout({
       <head>
         <meta charSet="utf-8" />
         <link rel="icon" href="/favicon.ico" />
+        <link
+          rel="stylesheet"
+          href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
+          integrity="sha512-iecdLmaskl7CVkqkXNQ/ZH/XLlvWZOJyj7Yy7tcenmpD1ypASozpmT/E0iPtmFIB46ZmdtAc9eNBvH0H/ZpiBw=="
+          crossOrigin="anonymous"
+          referrerPolicy="no-referrer"
+        />
       </head>
       <body className={inter.className}>
-        <BootstrapProvider />
-        <div id="root">
-          {children}
-        </div>
+        <AuthProvider>
+          <BootstrapProvider />
+          <div id="root">
+            {children}
+          </div>
+        </AuthProvider>
       </body>
     </html>
   )

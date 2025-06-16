@@ -887,465 +887,83 @@ npm run db:seed
 npm run db:setup
 ```
 
-## Phase 7: API Routes Implementation
+## Phase 7: API Routes Implementation ✅ COMPLETED
 
-### 7.1 Authentication Routes
+### 7.1 Authentication Routes ✅ IMPLEMENTED
+- ✅ **Provider Route**: `/api/auth/[provider]/route.ts` - Handles OAuth/OIDC initiation for Google and GitHub
+- ✅ **Callback Route**: `/api/auth/callback/[provider]/route.ts` - Processes OAuth callbacks and sets sessions
+- ✅ **Logout Route**: `/api/auth/logout/route.ts` - Handles user logout with cookie clearing
 
-#### `/api/auth/[provider]/route.ts`
-```typescript
-import { NextRequest, NextResponse } from 'next/server';
-import { authService } from '@/lib/auth-service';
+### 7.2 Protected API Routes ✅ IMPLEMENTED
+- ✅ **Search API**: `/api/search/route.ts` - AI-powered legal document search with vector similarity
+- ✅ **Consultant API**: `/api/consultant/route.ts` - Streaming AI legal consultation with function calling
+- ✅ **Profile API**: `/api/profile/route.ts` - User profile management with GET and PATCH methods
+- ✅ **Q&A API**: `/api/qa/route.ts` - Streaming legal question answering with context search
 
-export async function GET(
-  request: NextRequest,
-  { params }: { params: { provider: string } }
-) {
-  try {
-    const { provider } = params;
-    
-    if (!['google', 'github'].includes(provider)) {
-      return NextResponse.json({ error: 'Invalid provider' }, { status: 400 });
-    }
-    
-    const { state, nonce } = authService.generateAuthState();
-    const authUrl = authService.getAuthUrl(provider, state, nonce);
-    
-    const response = NextResponse.redirect(authUrl);
-    response.cookies.set('oauth_state', state, { httpOnly: true, maxAge: 600 });
-    response.cookies.set('oauth_nonce', nonce, { httpOnly: true, maxAge: 600 });
-    
-    return response;
-  } catch (error) {
-    console.error('Auth initiation error:', error);
-    return NextResponse.json({ error: 'Authentication failed' }, { status: 500 });
-  }
-}
-```
+### 7.3 Key Features Implemented
+- ✅ **Session Management**: All routes use `SessionManager.getSession()` for authentication
+- ✅ **Token Management**: Proper token usage tracking and validation
+- ✅ **Feature Access Control**: Role-based access control for different features
+- ✅ **Error Handling**: Comprehensive error responses with proper HTTP status codes
+- ✅ **Streaming Responses**: Real-time streaming for AI-powered endpoints
+- ✅ **Function Calling**: Advanced AI function calling for document search integration
 
-#### `/api/auth/callback/[provider]/route.ts`
-```typescript
-import { NextRequest, NextResponse } from 'next/server';
-import { authService } from '@/lib/auth-service';
-import { SessionManager } from '@/lib/session';
+## Phase 8: Middleware for Authentication ✅ COMPLETED
 
-export async function GET(
-  request: NextRequest,
-  { params }: { params: { provider: string } }
-) {
-  try {
-    const { provider } = params;
-    const { searchParams } = new URL(request.url);
-    
-    const code = searchParams.get('code');
-    const state = searchParams.get('state');
-    const storedState = request.cookies.get('oauth_state')?.value;
-    const storedNonce = request.cookies.get('oauth_nonce')?.value;
-    
-    if (!code || !state || !storedState || state !== storedState) {
-      return NextResponse.json({ error: 'Invalid authentication state' }, { status: 400 });
-    }
-    
-    const tokens = await authService.handleOIDCCallback(provider, code, state, storedNonce);
-    
-    const response = NextResponse.redirect(new URL('/', request.url));
-    SessionManager.setAuthCookies(response, tokens);
-    
-    // Clear OAuth state cookies
-    response.cookies.delete('oauth_state');
-    response.cookies.delete('oauth_nonce');
-    
-    return response;
-  } catch (error) {
-    console.error('Auth callback error:', error);
-    return NextResponse.redirect(new URL('/auth/error', request.url));
-  }
-}
-```
+### 8.1 Authentication Middleware ✅ IMPLEMENTED
+- ✅ **Route Protection**: Comprehensive middleware in `src/middleware.ts`
+- ✅ **Path Configuration**: Protected, auth, and public paths properly defined
+- ✅ **Session Validation**: Automatic session checking for protected routes
+- ✅ **Role-Based Access**: Admin and premium feature access control
+- ✅ **API vs Page Handling**: Different responses for API routes vs page routes
+- ✅ **Error Handling**: Graceful error handling with appropriate redirects
 
-### 7.2 Protected API Route Example
+### 8.2 Key Features Implemented
+- ✅ **Protected Paths**: `/api/search`, `/api/consultant`, `/api/profile`, `/dashboard`, `/consultant`, `/search`
+- ✅ **Auth Paths**: `/api/auth`, `/auth`, `/login` - accessible without authentication
+- ✅ **Public Paths**: `/`, `/about`, `/contact`, `/terms`, `/privacy` - public access
+- ✅ **Session Headers**: Automatic session data injection into API request headers
+- ✅ **Redirect Logic**: Smart redirects to login with return URL for protected pages
+- ✅ **Static File Handling**: Proper exclusion of static files and Next.js internals
 
-#### `/api/search/route.ts`
-```typescript
-import { NextRequest, NextResponse } from 'next/server';
-import { SessionManager } from '@/lib/session';
-import { searchDocuments, saveSearchHistory, updateTokenUsage, checkTokenAvailability } from '@/lib/database';
-import { generateEmbedding } from '@/lib/embeddings';
+## Phase 9: Frontend Components Updates ✅ COMPLETED
 
-export async function POST(request: NextRequest) {
-  try {
-    const session = await SessionManager.requireSession(request);
-    const { query, matchCount = 10 } = await request.json();
-    
-    if (!query || typeof query !== 'string') {
-      return NextResponse.json({ error: 'Query is required' }, { status: 400 });
-    }
-    
-    // Check token availability
-    const estimatedTokens = Math.ceil(query.length / 4) + 100; // Rough estimation
-    const hasTokens = await checkTokenAvailability(session, estimatedTokens);
-    
-    if (!hasTokens) {
-      return NextResponse.json({ error: 'Insufficient tokens' }, { status: 402 });
-    }
-    
-    // Generate embedding for the query
-    const embedding = await generateEmbedding(query);
-    
-    // Search documents
-    const results = await searchDocuments(embedding, matchCount);
-    
-    // Save search history and update token usage
-    const documentIds = results.map(r => r.id);
-    await saveSearchHistory(session, query, documentIds, estimatedTokens);
-    await updateTokenUsage(session, estimatedTokens);
-    
-    return NextResponse.json({
-      results,
-      tokensUsed: estimatedTokens,
-      query
-    });
-  } catch (error) {
-    console.error('Search API error:', error);
-    
-    if (error instanceof Error && error.message === 'Authentication required') {
-      return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
-    }
-    
-    return NextResponse.json({ error: 'Search failed' }, { status: 500 });
-  }
-}
-```
+### 9.1 Authentication Context ✅ IMPLEMENTED
+- ✅ **AuthContext** (`src/contexts/AuthContext.tsx`): Complete authentication context with user state management
+- ✅ **User Interface**: Comprehensive user type with credits and profile information
+- ✅ **Auth Methods**: Login, logout, and profile refresh functionality
+- ✅ **Loading States**: Proper loading state management during authentication
+- ✅ **Error Handling**: Robust error handling for authentication failures
+- ✅ **HOC Protection**: `withAuth` higher-order component for route protection
 
-#### `/api/consultant/route.ts`
-```typescript
-import { NextRequest, NextResponse } from 'next/server';
-import { SessionManager } from '@/lib/session';
-import { saveConversation, updateTokenUsage, checkTokenAvailability } from '@/lib/database';
-import { generateResponse } from '@/lib/ai-service';
+### 9.2 Authentication Components ✅ IMPLEMENTED
+- ✅ **LoginForm** (`src/components/auth/LoginForm.tsx`): Full-featured login form with CAPTCHA integration
+- ✅ **CompactLoginForm**: Compact version for embedding in other components
+- ✅ **UserProfile** (`src/components/auth/UserProfile.tsx`): Comprehensive user profile management
+- ✅ **UserInfo**: Compact user info component for navigation bars
+- ✅ **Profile Editing**: Modal-based profile editing with validation
 
-export async function POST(request: NextRequest) {
-  try {
-    const session = await SessionManager.requireSession(request);
-    const { 
-      messages, 
-      conversationId, 
-      model = 'gemini-2.5-flash-preview-05-20' 
-    } = await request.json();
-    
-    if (!messages || !Array.isArray(messages)) {
-      return NextResponse.json({ error: 'Messages are required' }, { status: 400 });
-    }
-    
-    // Estimate token usage
-    const estimatedTokens = messages.reduce((total, msg) => 
-      total + Math.ceil(msg.content.length / 4), 0) + 500;
-    
-    const hasTokens = await checkTokenAvailability(session, estimatedTokens);
-    if (!hasTokens) {
-      return NextResponse.json({ error: 'Insufficient tokens' }, { status: 402 });
-    }
-    
-    // Generate AI response
-    const { response, actualTokens, documentIds } = await generateResponse(messages, model);
-    
-    // Prepare messages for saving
-    const messagesToSave = [
-      ...messages.slice(-1), // Last user message
-      {
-        role: 'assistant' as const,
-        content: response,
-        documents_ids: documentIds,
-        tokens_used: actualTokens,
-        timestamp: new Date().toISOString()
-      }
-    ];
-    
-    // Save conversation and update tokens
-    const finalConversationId = await saveConversation(
-      session,
-      conversationId,
-      messagesToSave,
-      undefined,
-      actualTokens,
-      model
-    );
-    
-    await updateTokenUsage(session, actualTokens);
-    
-    return NextResponse.json({
-      response,
-      conversationId: finalConversationId,
-      tokensUsed: actualTokens,
-      documentIds
-    });
-  } catch (error) {
-    console.error('Consultant API error:', error);
-    
-    if (error instanceof Error && error.message === 'Authentication required') {
-      return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
-    }
-    
-    return NextResponse.json({ error: 'Consultation failed' }, { status: 500 });
-  }
-}
-```
+### 9.3 Authentication Pages ✅ IMPLEMENTED
+- ✅ **Login Page** (`src/app/auth/login/page.tsx`): Dedicated login page
+- ✅ **Error Page** (`src/app/auth/error/page.tsx`): Comprehensive error handling with user-friendly messages
+- ✅ **Profile Page** (`src/app/profile/page.tsx`): Protected profile page with authentication wrapper
 
-#### `/api/profile/route.ts`
-```typescript
-import { NextRequest, NextResponse } from 'next/server';
-import { SessionManager } from '@/lib/session';
-import { getUserProfile } from '@/lib/database';
+### 9.4 Layout Integration ✅ IMPLEMENTED
+- ✅ **Root Layout** (`src/app/layout.tsx`): Updated with AuthProvider and Font Awesome icons
+- ✅ **Main Page** (`src/app/page.tsx`): Updated to use new authentication context
+- ✅ **Navigation Integration**: User info components integrated into navigation
 
-export async function GET(request: NextRequest) {
-  try {
-    const session = await SessionManager.requireSession(request);
-    const profile = await getUserProfile(session);
-    
-    return NextResponse.json(profile);
-  } catch (error) {
-    console.error('Profile API error:', error);
-    
-    if (error instanceof Error && error.message === 'Authentication required') {
-      return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
-    }
-    
-    return NextResponse.json({ error: 'Failed to get profile' }, { status: 500 });
-  }
-}
-```
-
-## Phase 8: Middleware for Authentication
-
-### 8.1 Authentication Middleware (`src/middleware.ts`)
-```typescript
-import { NextRequest, NextResponse } from 'next/server';
-import { SessionManager } from '@/lib/session';
-
-const protectedPaths = [
-  '/api/search',
-  '/api/consultant',
-  '/api/profile',
-  '/dashboard',
-  '/consultant',
-  '/search'
-];
-
-const authPaths = [
-  '/api/auth',
-  '/auth'
-];
-
-export async function middleware(request: NextRequest) {
-  const { pathname } = request.nextUrl;
-  
-  // Skip middleware for auth paths and static files
-  if (
-    authPaths.some(path => pathname.startsWith(path)) ||
-    pathname.startsWith('/_next') ||
-    pathname.startsWith('/favicon') ||
-    pathname.includes('.')
-  ) {
-    return NextResponse.next();
-  }
-  
-  // Check if path requires authentication
-  const isProtectedPath = protectedPaths.some(path => pathname.startsWith(path));
-  
-  if (isProtectedPath) {
-    const session = await SessionManager.getSession(request);
-    
-    if (!session) {
-      // Redirect to login for protected pages
-      if (pathname.startsWith('/api/')) {
-        return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
-      } else {
-        return NextResponse.redirect(new URL('/auth/login', request.url));
-      }
-    }
-    
-    // Add session data to headers for API routes
-    if (pathname.startsWith('/api/')) {
-      const response = NextResponse.next();
-      response.headers.set('x-user-id', session.userId);
-      response.headers.set('x-user-email', session.email);
-      response.headers.set('x-user-role', session.role);
-      return response;
-    }
-  }
-  
-  return NextResponse.next();
-}
-
-export const config = {
-  matcher: [
-    '/((?!_next/static|_next/image|favicon.ico).*)',
-  ],
-};
-```
-
-## Phase 9: Frontend Components Updates
-
-### 9.1 Authentication Context (`src/contexts/AuthContext.tsx`)
-```typescript
-'use client';
-
-import React, { createContext, useContext, useEffect, useState } from 'react';
-
-interface User {
-  id: string;
-  email: string;
-  name?: string;
-  avatar_url?: string;
-  role: string;
-  provider: string;
-  total_tokens: number;
-  used_tokens: number;
-  remaining_tokens: number;
-}
-
-interface AuthContextType {
-  user: User | null;
-  loading: boolean;
-  login: (provider: 'google' | 'github') => void;
-  logout: () => void;
-  refreshProfile: () => Promise<void>;
-}
-
-const AuthContext = createContext<AuthContextType | undefined>(undefined);
-
-export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(true);
-  
-  const fetchProfile = async () => {
-    try {
-      const response = await fetch('/api/profile');
-      if (response.ok) {
-        const profile = await response.json();
-        setUser(profile);
-      } else {
-        setUser(null);
-      }
-    } catch (error) {
-      console.error('Failed to fetch profile:', error);
-      setUser(null);
-    } finally {
-      setLoading(false);
-    }
-  };
-  
-  useEffect(() => {
-    fetchProfile();
-  }, []);
-  
-  const login = (provider: 'google' | 'github') => {
-    window.location.href = `/api/auth/${provider}`;
-  };
-  
-  const logout = async () => {
-    try {
-      await fetch('/api/auth/logout', { method: 'POST' });
-      setUser(null);
-      window.location.href = '/';
-    } catch (error) {
-      console.error('Logout error:', error);
-    }
-  };
-  
-  const refreshProfile = async () => {
-    await fetchProfile();
-  };
-  
-  return (
-    <AuthContext.Provider value={{ user, loading, login, logout, refreshProfile }}>
-      {children}
-    </AuthContext.Provider>
-  );
-}
-
-export function useAuth() {
-  const context = useContext(AuthContext);
-  if (context === undefined) {
-    throw new Error('useAuth must be used within an AuthProvider');
-  }
-  return context;
-}
-```
-
-### 9.2 Login Component (`src/components/auth/LoginForm.tsx`)
-```typescript
-'use client';
-
-import React from 'react';
-import { useAuth } from '@/contexts/AuthContext';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-
-export function LoginForm() {
-  const { login, loading } = useAuth();
-  
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-gray-900"></div>
-      </div>
-    );
-  }
-  
-  return (
-    <div className="flex items-center justify-center min-h-screen bg-gray-50">
-      <Card className="w-full max-w-md">
-        <CardHeader className="space-y-1">
-          <CardTitle className="text-2xl text-center">登入澳門法律知識庫</CardTitle>
-          <CardDescription className="text-center">
-            選擇您的登入方式
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <Button
-            onClick={() => login('google')}
-            variant="outline"
-            className="w-full"
-            size="lg"
-          >
-            <svg className="w-5 h-5 mr-2" viewBox="0 0 24 24">
-              <path
-                fill="currentColor"
-                d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
-              />
-              <path
-                fill="currentColor"
-                d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
-              />
-              <path
-                fill="currentColor"
-                d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"
-              />
-              <path
-                fill="currentColor"
-                d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
-              />
-            </svg>
-            使用 Google 登入
-          </Button>
-          
-          <Button
-            onClick={() => login('github')}
-            variant="outline"
-            className="w-full"
-            size="lg"
-          >
-            <svg className="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 24 24">
-              <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>
-            </svg>
-            使用 GitHub 登入
-          </Button>
-        </CardContent>
-      </Card>
-    </div>
-  );
-}
-```
+### 9.5 Key Features Implemented
+- ✅ **Context-Based Authentication**: Centralized authentication state management
+- ✅ **CAPTCHA Integration**: Secure login with human verification
+- ✅ **Token Management**: Real-time token usage display and management
+- ✅ **Profile Management**: Complete user profile editing capabilities
+- ✅ **Role-Based UI**: Different UI elements based on user roles (admin, vip, pay, free)
+- ✅ **Provider Support**: Visual indicators for Google, GitHub, and legacy accounts
+- ✅ **Responsive Design**: Bootstrap-based responsive components
+- ✅ **Error Handling**: Comprehensive error pages with helpful guidance
+- ✅ **Loading States**: Proper loading indicators throughout the application
+- ✅ **Route Protection**: HOC-based route protection for authenticated pages
 
 ## Phase 10: Supporting Services
 
