@@ -845,9 +845,17 @@ export async function getLawDocument(lawId: string): Promise<any> {
 }
 ```
 
-## Phase 6: Database Schema Updates (Minimal Changes)
+## Phase 6: Database Schema Updates (Minimal Changes) ✅ COMPLETED
 
-### 6.1 Add Required Columns Only
+### 6.1 Migration Scripts Created
+- ✅ **Migration Script**: `scripts/migrate.js` - Adds OIDC columns and indexes
+- ✅ **Seeding Script**: `scripts/seed.js` - Creates test data for development
+- ✅ **Health Check Script**: `scripts/health-check.js` - Verifies database status
+- ✅ **Package.json Scripts**: Added `db:migrate`, `db:seed`, `db:setup`, `db:health`
+- ✅ **Environment Template**: Updated `.env.example` with all required variables
+- ✅ **Documentation**: Created `DATABASE_MIGRATION.md` with detailed instructions
+
+### 6.2 Schema Changes Applied
 ```sql
 -- Add columns for OIDC authentication (keeping existing structure)
 ALTER TABLE users ADD COLUMN IF NOT EXISTS provider TEXT DEFAULT 'oidc';
@@ -857,9 +865,26 @@ ALTER TABLE users ADD COLUMN IF NOT EXISTS provider_id TEXT;
 CREATE INDEX IF NOT EXISTS idx_users_provider ON users(provider, provider_id);
 CREATE INDEX IF NOT EXISTS idx_search_history_user_created ON search_history(user_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_qa_history_user_created ON qa_history(user_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_consultant_conversations_user ON consultant_conversations(user_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_consultant_messages_conversation ON consultant_messages(conversation_id, created_at ASC);
 
 -- Update existing users to have provider info (one-time migration)
 UPDATE users SET provider = 'legacy', provider_id = id::text WHERE provider IS NULL;
+```
+
+### 6.3 Usage Instructions
+```bash
+# Run database health check
+npm run db:health
+
+# Run migration only
+npm run db:migrate
+
+# Add test data (development)
+npm run db:seed
+
+# Complete setup (migrate + seed)
+npm run db:setup
 ```
 
 ## Phase 7: API Routes Implementation
