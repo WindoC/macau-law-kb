@@ -1328,7 +1328,7 @@ export function LoginForm() {
 ```typescript
 import { GoogleGenerativeAI } from '@google/generative-ai';
 
-const genAI = new GoogleGenerativeAI(process.env.GOOGLE_AI_API_KEY!);
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
 
 export async function generateEmbedding(text: string): Promise<number[]> {
   try {
@@ -1347,7 +1347,7 @@ export async function generateEmbedding(text: string): Promise<number[]> {
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { searchDocuments } from './database';
 
-const genAI = new GoogleGenerativeAI(process.env.GOOGLE_AI_API_KEY!);
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
 
 interface Message {
   role: 'user' | 'assistant';
@@ -1610,7 +1610,7 @@ GITHUB_CLIENT_ID=...
 GITHUB_CLIENT_SECRET=...
 GITHUB_REDIRECT_URI=https://yourdomain.com/api/auth/callback/github
 
-GOOGLE_AI_API_KEY=... # For embeddings and AI responses
+GEMINI_API_KEY=... # For embeddings and AI responses
 
 NEXTAUTH_URL=https://yourdomain.com
 NEXTAUTH_SECRET=... # Generate strong secret

@@ -116,7 +116,7 @@ webapp/
    SUPABASE_SERVICE_ROLE_KEY=your_supabase_service_role_key
    
    # Google Gemini AI Configuration
-   GOOGLE_AI_API_KEY=your_google_ai_api_key
+   GEMINI_API_KEY=your_google_ai_api_key
    
    # JWT and Security
    JWT_SECRET=your_jwt_secret_minimum_32_characters
