@@ -1,3 +1,6 @@
+// Load environment variables from .env.local and .env files
+require('dotenv').config({ path: '.env.local' });
+
 const { Pool } = require('pg');
 
 async function seed() {
@@ -35,14 +38,28 @@ async function seed() {
     
     // Create user credits for test user
     console.log('Setting up user credits...');
-    await pool.query(`
-      INSERT INTO user_credits (user_id, total_tokens, used_tokens, remaining_tokens, created_at, updated_at)
-      VALUES ($1, $2, 0, $2, NOW(), NOW())
-      ON CONFLICT (user_id) DO UPDATE SET
-        total_tokens = EXCLUDED.total_tokens,
-        remaining_tokens = EXCLUDED.remaining_tokens,
-        updated_at = NOW();
-    `, [userId, 10000]);
+    
+    // Check if user credits already exist
+    const existingCredits = await pool.query(`
+      SELECT id FROM user_credits WHERE user_id = $1;
+    `, [userId]);
+    
+    if (existingCredits.rows.length === 0) {
+      // Create new user credits
+      await pool.query(`
+        INSERT INTO user_credits (user_id, total_tokens, used_tokens, remaining_tokens, created_at, updated_at)
+        VALUES ($1, $2, 0, $2, NOW(), NOW());
+      `, [userId, 10000]);
+      console.log('Created new user credits');
+    } else {
+      // Update existing user credits
+      await pool.query(`
+        UPDATE user_credits
+        SET total_tokens = $2, remaining_tokens = $2, updated_at = NOW()
+        WHERE user_id = $1;
+      `, [userId, 10000]);
+      console.log('Updated existing user credits');
+    }
     
     // Create some sample search history
     console.log('Creating sample search history...');
