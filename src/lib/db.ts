@@ -17,19 +17,37 @@ class DatabaseManager {
   private static instance: DatabaseManager;
   
   constructor() {
-    const config: DatabaseConfig = {
-      host: process.env.DB_HOST!,
-      port: parseInt(process.env.DB_PORT || '5432'),
-      database: process.env.DB_NAME!,
-      user: process.env.DB_USER!,
-      password: process.env.DB_PASSWORD!,
-      ssl: process.env.DB_SSL === 'true' ? { rejectUnauthorized: false } : false,
-      max: 20,
-      idleTimeoutMillis: 30000,
-      connectionTimeoutMillis: 2000,
-    };
-    
-    this.pool = new Pool(config);
+    // Use DATABASE_URL if available, otherwise fall back to individual variables
+    if (process.env.DATABASE_URL) {
+      this.pool = new Pool({
+        connectionString: process.env.DATABASE_URL,
+        ssl: process.env.DB_SSL === 'true' ? {
+          rejectUnauthorized: false
+        } : false,
+        max: 10, // Reduced pool size for better connection management
+        idleTimeoutMillis: 30000,
+        connectionTimeoutMillis: 5000, // Increased timeout
+        // Additional options for better connection stability
+        keepAlive: true,
+        keepAliveInitialDelayMillis: 10000,
+      });
+    } else {
+      const config: DatabaseConfig = {
+        host: process.env.DB_HOST!,
+        port: parseInt(process.env.DB_PORT || '5432'),
+        database: process.env.DB_NAME!,
+        user: process.env.DB_USER!,
+        password: process.env.DB_PASSWORD!,
+        ssl: process.env.DB_SSL === 'true' ? {
+          rejectUnauthorized: false
+        } : false,
+        max: 10,
+        idleTimeoutMillis: 30000,
+        connectionTimeoutMillis: 5000,
+      };
+      
+      this.pool = new Pool(config);
+    }
     
     this.pool.on('error', (err) => {
       console.error('Unexpected error on idle client', err);

@@ -223,7 +223,10 @@ export async function saveConversation(
  */
 export async function getUserProfile(session: SessionData): Promise<any> {
   try {
-    const [user] = await db.query(
+    console.log('Getting user profile for:', session.userId);
+    
+    // Try database first
+    const users = await db.query(
       `SELECT u.id, u.email, u.name, u.avatar_url, u.role, u.provider, u.created_at, u.updated_at,
               uc.total_tokens, uc.used_tokens, uc.remaining_tokens, uc.last_reset
        FROM users u
@@ -232,13 +235,53 @@ export async function getUserProfile(session: SessionData): Promise<any> {
       [session.userId]
     );
     
-    if (!user) {
-      throw new Error('User not found');
+    if (users.length > 0) {
+      console.log('Successfully retrieved user profile from database:', users[0].email);
+      return users[0];
     }
     
-    return user;
+    // If user not found in database, check if it's a temporary user
+    if (session.userId.startsWith('temp-')) {
+      console.log('User not in database, returning temporary profile for:', session.userId);
+      return {
+        id: session.userId,
+        email: session.email,
+        name: 'Temporary User',
+        avatar_url: null,
+        role: session.role,
+        provider: session.provider,
+        created_at: new Date(),
+        updated_at: new Date(),
+        total_tokens: 100000,
+        used_tokens: 0,
+        remaining_tokens: 100000,
+        last_reset: new Date()
+      };
+    }
+    
+    throw new Error('User not found');
   } catch (error) {
     console.error('Get user profile error:', error);
+    
+    // If it's a temporary user and database failed, return mock profile
+    if (session.userId.startsWith('temp-')) {
+      console.log('Database error for temp user, returning mock profile');
+      return {
+        id: session.userId,
+        email: session.email,
+        name: 'Temporary User',
+        avatar_url: null,
+        role: session.role,
+        provider: session.provider,
+        created_at: new Date(),
+        updated_at: new Date(),
+        total_tokens: 100000,
+        used_tokens: 0,
+        remaining_tokens: 100000,
+        last_reset: new Date()
+      };
+    }
+    
     throw new Error('Failed to get user profile');
   }
 }

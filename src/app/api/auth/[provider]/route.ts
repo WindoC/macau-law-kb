@@ -7,10 +7,11 @@ import { authService } from '@/lib/auth-service';
  */
 export async function GET(
   request: NextRequest,
-  { params }: { params: { provider: string } }
+  { params }: { params: Promise<{ provider: string }> }
 ) {
+  const { provider } = await params;
+  
   try {
-    const { provider } = params;
     
     // Validate provider
     if (!['google', 'github'].includes(provider)) {
@@ -59,7 +60,7 @@ export async function GET(
     
     return response;
   } catch (error) {
-    console.error(`Auth initiation error for provider ${params.provider}:`, error);
+    console.error(`Auth initiation error:`, error);
     
     // Return error response
     return NextResponse.json(

@@ -8,10 +8,11 @@ import { SessionManager } from '@/lib/session';
  */
 export async function GET(
   request: NextRequest,
-  { params }: { params: { provider: string } }
+  { params }: { params: Promise<{ provider: string }> }
 ) {
+  const { provider } = await params;
+  
   try {
-    const { provider } = params;
     const { searchParams } = new URL(request.url);
     
     // Validate provider
@@ -72,7 +73,7 @@ export async function GET(
     
     return response;
   } catch (error) {
-    console.error(`Auth callback error for provider ${params.provider}:`, error);
+    console.error(`Auth callback error for provider ${provider}:`, error);
     
     // Determine error type and redirect accordingly
     const errorMessage = (error as Error).message;
@@ -87,7 +88,7 @@ export async function GET(
     }
     
     return NextResponse.redirect(
-      new URL(`/auth/error?error=${errorCode}&provider=${params.provider}`, request.url)
+      new URL(`/auth/error?error=${errorCode}&provider=${provider}`, request.url)
     );
   }
 }
