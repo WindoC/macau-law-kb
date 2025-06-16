@@ -1,7 +1,6 @@
 import jwt from 'jsonwebtoken';
 import { db } from './db';
 import { oidcManager } from './oidc-providers';
-import * as openidClient from 'openid-client';
 
 export interface User {
   id: string;
@@ -149,34 +148,28 @@ export class AuthService {
       
       if (provider === 'github') {
         // Handle GitHub OAuth2
-        const tokenSet = await oidcProvider.client.callback(
-          process.env.GITHUB_REDIRECT_URI!,
-          { code, state },
-          { state }
-        );
+        const tokenResponse = await this.exchangeCodeForToken(provider, code);
+        const userResponse = await this.fetchGitHubUser(tokenResponse.access_token);
         
-        const userResponse = await oidcProvider.client.userinfo(tokenSet.access_token!);
         userInfo = {
           email: userResponse.email!,
           name: userResponse.name,
           picture: userResponse.avatar_url,
           sub: userResponse.id.toString(),
         };
-      } else {
+      } else if (provider === 'google') {
         // Handle Google OIDC
-        const tokenSet = await oidcProvider.client.callback(
-          process.env.GOOGLE_REDIRECT_URI!,
-          { code, state },
-          { state, nonce }
-        );
+        const tokenResponse = await this.exchangeCodeForToken(provider, code);
+        const userResponse = await this.fetchGoogleUser(tokenResponse.access_token);
         
-        const claims = tokenSet.claims();
         userInfo = {
-          email: claims.email!,
-          name: claims.name,
-          picture: claims.picture,
-          sub: claims.sub,
+          email: userResponse.email!,
+          name: userResponse.name,
+          picture: userResponse.picture,
+          sub: userResponse.sub,
         };
+      } else {
+        throw new Error(`Unsupported provider: ${provider}`);
       }
       
       const user = await this.findOrCreateUser(provider, userInfo);
@@ -185,6 +178,120 @@ export class AuthService {
       console.error('OIDC callback error:', error);
       throw new Error('Authentication failed');
     }
+  }
+
+  /**
+   * Exchange authorization code for access token
+   * @param provider - Provider name
+   * @param code - Authorization code
+   * @returns Token response
+   */
+  private async exchangeCodeForToken(provider: string, code: string): Promise<any> {
+    const oidcProvider = oidcManager.getProvider(provider);
+    if (!oidcProvider) {
+      throw new Error(`Unknown provider: ${provider}`);
+    }
+
+    if (provider === 'github') {
+      const response = await fetch('https://github.com/login/oauth/access_token', {
+        method: 'POST',
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: new URLSearchParams({
+          client_id: oidcProvider.clientId,
+          client_secret: oidcProvider.clientSecret,
+          code,
+          redirect_uri: oidcProvider.redirectUri,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to exchange code for token');
+      }
+
+      return await response.json();
+    } else if (provider === 'google') {
+      const response = await fetch('https://oauth2.googleapis.com/token', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: new URLSearchParams({
+          client_id: oidcProvider.clientId,
+          client_secret: oidcProvider.clientSecret,
+          code,
+          grant_type: 'authorization_code',
+          redirect_uri: oidcProvider.redirectUri,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to exchange code for token');
+      }
+
+      return await response.json();
+    }
+
+    throw new Error(`Unsupported provider: ${provider}`);
+  }
+
+  /**
+   * Fetch GitHub user information
+   * @param accessToken - GitHub access token
+   * @returns GitHub user data
+   */
+  private async fetchGitHubUser(accessToken: string): Promise<any> {
+    const response = await fetch('https://api.github.com/user', {
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+        'Accept': 'application/vnd.github.v3+json',
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error('Failed to fetch GitHub user');
+    }
+
+    const user = await response.json();
+
+    // Fetch user email if not public
+    if (!user.email) {
+      const emailResponse = await fetch('https://api.github.com/user/emails', {
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Accept': 'application/vnd.github.v3+json',
+        },
+      });
+
+      if (emailResponse.ok) {
+        const emails = await emailResponse.json();
+        const primaryEmail = emails.find((email: any) => email.primary);
+        user.email = primaryEmail?.email || emails[0]?.email;
+      }
+    }
+
+    return user;
+  }
+
+  /**
+   * Fetch Google user information
+   * @param accessToken - Google access token
+   * @returns Google user data
+   */
+  private async fetchGoogleUser(accessToken: string): Promise<any> {
+    const response = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error('Failed to fetch Google user');
+    }
+
+    return await response.json();
   }
   
   /**

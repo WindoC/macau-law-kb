@@ -1,9 +1,10 @@
-import * as openidClient from 'openid-client';
-
 export interface OIDCProvider {
   name: string;
-  client: openidClient.Client;
-  authUrl: (state: string, nonce: string) => string;
+  clientId: string;
+  clientSecret: string;
+  redirectUri: string;
+  authUrl: (state: string, nonce?: string) => string;
+  discoveryUrl?: string;
 }
 
 class OIDCManager {
@@ -15,47 +16,45 @@ class OIDCManager {
     
     try {
       // Google OIDC Setup
-      const googleIssuer = await openidClient.Issuer.discover('https://accounts.google.com');
-      const googleClient = new googleIssuer.Client({
-        client_id: process.env.GOOGLE_CLIENT_ID!,
-        client_secret: process.env.GOOGLE_CLIENT_SECRET!,
-        redirect_uris: [process.env.GOOGLE_REDIRECT_URI!],
-        response_types: ['code'],
-      });
-      
-      this.providers.set('google', {
+      const googleProvider: OIDCProvider = {
         name: 'google',
-        client: googleClient,
-        authUrl: (state: string, nonce: string) => googleClient.authorizationUrl({
-          scope: 'openid email profile',
-          state,
-          nonce,
-        }),
-      });
+        clientId: process.env.GOOGLE_CLIENT_ID!,
+        clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
+        redirectUri: process.env.GOOGLE_REDIRECT_URI!,
+        discoveryUrl: 'https://accounts.google.com/.well-known/openid_configuration',
+        authUrl: (state: string, nonce?: string) => {
+          const params = new URLSearchParams({
+            client_id: process.env.GOOGLE_CLIENT_ID!,
+            redirect_uri: process.env.GOOGLE_REDIRECT_URI!,
+            response_type: 'code',
+            scope: 'openid email profile',
+            state,
+            ...(nonce && { nonce }),
+          });
+          return `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`;
+        },
+      };
+      
+      this.providers.set('google', googleProvider);
       
       // GitHub OAuth Setup (GitHub doesn't support OIDC, using OAuth2)
-      const githubClient = new openidClient.Issuer({
-        issuer: 'https://github.com',
-        authorization_endpoint: 'https://github.com/login/oauth/authorize',
-        token_endpoint: 'https://github.com/login/oauth/access_token',
-        userinfo_endpoint: 'https://api.github.com/user',
-      }).Client;
-      
-      const githubOAuthClient = new githubClient({
-        client_id: process.env.GITHUB_CLIENT_ID!,
-        client_secret: process.env.GITHUB_CLIENT_SECRET!,
-        redirect_uris: [process.env.GITHUB_REDIRECT_URI!],
-        response_types: ['code'],
-      });
-      
-      this.providers.set('github', {
+      const githubProvider: OIDCProvider = {
         name: 'github',
-        client: githubOAuthClient,
-        authUrl: (state: string) => githubOAuthClient.authorizationUrl({
-          scope: 'user:email',
-          state,
-        }),
-      });
+        clientId: process.env.GITHUB_CLIENT_ID!,
+        clientSecret: process.env.GITHUB_CLIENT_SECRET!,
+        redirectUri: process.env.GITHUB_REDIRECT_URI!,
+        authUrl: (state: string) => {
+          const params = new URLSearchParams({
+            client_id: process.env.GITHUB_CLIENT_ID!,
+            redirect_uri: process.env.GITHUB_REDIRECT_URI!,
+            scope: 'user:email',
+            state,
+          });
+          return `https://github.com/login/oauth/authorize?${params.toString()}`;
+        },
+      };
+      
+      this.providers.set('github', githubProvider);
       
       this.initialized = true;
       console.log('OIDC providers initialized successfully');
@@ -75,6 +74,19 @@ class OIDCManager {
   
   isInitialized(): boolean {
     return this.initialized;
+  }
+
+  async getDiscoveryDocument(url: string) {
+    try {
+      const response = await fetch(url);
+      if (!response.ok) {
+        throw new Error(`Failed to fetch discovery document: ${response.statusText}`);
+      }
+      return await response.json();
+    } catch (error) {
+      console.error('Failed to fetch discovery document:', error);
+      throw error;
+    }
   }
 }
 

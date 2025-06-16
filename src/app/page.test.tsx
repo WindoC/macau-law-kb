@@ -2,17 +2,11 @@ import { render, screen } from '@testing-library/react'
 import '@testing-library/jest-dom'
 import HomePage from './page'
 
-// Mock Supabase
-jest.mock('@/lib/supabase', () => ({
-  supabase: {
-    auth: {
-      getSession: jest.fn().mockResolvedValue({ data: { session: null } }),
-      onAuthStateChange: jest.fn().mockReturnValue({
-        data: { subscription: { unsubscribe: jest.fn() } }
-      }),
-      signInWithOAuth: jest.fn()
-    }
-  }
+// Mock auth-client
+jest.mock('@/lib/auth-client', () => ({
+  isAuthenticated: jest.fn().mockResolvedValue(false),
+  getUser: jest.fn().mockResolvedValue(null),
+  logout: jest.fn().mockResolvedValue(undefined)
 }))
 
 // Mock CaptchaWidget

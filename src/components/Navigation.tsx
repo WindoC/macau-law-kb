@@ -2,9 +2,15 @@
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
-import { supabase } from '@/lib/supabase'
-import type { User } from '@supabase/supabase-js'
 import { useRouter } from 'next/navigation';
+
+interface User {
+  id: string
+  email: string
+  name?: string
+  avatar_url?: string
+  provider: string
+}
 
 /**
  * Navigation component for authenticated users
@@ -16,29 +22,41 @@ export default function Navigation() {
   const router = useRouter();
 
   useEffect(() => {
-    // Get initial session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setUser(session?.user ?? null)
-      setLoading(false)
-    })
-
-    // Listen for auth changes
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user ?? null)
-      setLoading(false)
-    })
-
-    return () => subscription.unsubscribe()
+    checkAuthStatus()
   }, [])
+
+  const checkAuthStatus = async () => {
+    try {
+      const response = await fetch('/api/profile', {
+        credentials: 'include'
+      })
+      
+      if (response.ok) {
+        const userData = await response.json()
+        setUser(userData)
+      } else {
+        setUser(null)
+      }
+    } catch (error) {
+      console.error('Auth check error:', error)
+      setUser(null)
+    } finally {
+      setLoading(false)
+    }
+  }
 
   const handleLogout = async () => {
     try {
-      const { error } = await supabase.auth.signOut();
-      router.push('/');
-      if (error) {
-        console.error('Logout error:', error)
+      const response = await fetch('/api/auth/logout', {
+        method: 'POST',
+        credentials: 'include'
+      })
+      
+      if (response.ok) {
+        setUser(null)
+        router.push('/')
+      } else {
+        console.error('Logout failed')
         alert('登出失敗，請稍後再試')
       }
     } catch (error) {
@@ -123,7 +141,7 @@ export default function Navigation() {
                 data-bs-toggle="dropdown"
               >
                 <i className="fas fa-user me-1"></i>
-                {user.user_metadata?.name || user.email}
+                {user.name || user.email}
               </a>
               <ul className="dropdown-menu">
                 <li><a className="dropdown-item" href="/profile">

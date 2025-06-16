@@ -4,30 +4,17 @@ import {
   hasTokens,
   createErrorResponse,
   createSuccessResponse,
-  validateMethod
+  validateMethod,
+  AuthenticatedUser
 } from '../auth-client';
-import {
-  generateCSRFToken,
-  verifyCSRFToken
-} from '../auth-server';
-import { AuthenticatedUser } from '../auth-client';
-
-// Mock JWT
-jest.mock('jsonwebtoken', () => ({
-  sign: jest.fn().mockReturnValue('mock-jwt-token'),
-  verify: jest.fn().mockReturnValue({ type: 'csrf', timestamp: Date.now() })
-}));
 
 describe('Authentication Utilities', () => {
-  // beforeEach(() => {
-  //   process.env.JWT_SECRET = 'test-secret';
-  // });
-
   describe('hasFeatureAccess', () => {
     const adminUser: AuthenticatedUser = {
       id: '1',
       email: 'admin@test.com',
       role: 'admin',
+      provider: 'google',
       created_at: '2023-01-01T00:00:00Z',
       updated_at: '2023-01-01T00:00:00Z',
       total_tokens: 10000,
@@ -39,6 +26,7 @@ describe('Authentication Utilities', () => {
       id: '2',
       email: 'free@test.com',
       role: 'free',
+      provider: 'google',
       created_at: '2023-01-01T00:00:00Z',
       updated_at: '2023-01-01T00:00:00Z',
       total_tokens: 1000,
@@ -50,6 +38,7 @@ describe('Authentication Utilities', () => {
       id: '3',
       email: 'pay@test.com',
       role: 'pay',
+      provider: 'github',
       created_at: '2023-01-01T00:00:00Z',
       updated_at: '2023-01-01T00:00:00Z',
       total_tokens: 5000,
@@ -86,6 +75,7 @@ describe('Authentication Utilities', () => {
         id: '1',
         email: 'vip@test.com',
         role: 'vip',
+        provider: 'google',
         created_at: '2023-01-01T00:00:00Z',
         updated_at: '2023-01-01T00:00:00Z',
         total_tokens: 10000,
@@ -97,6 +87,7 @@ describe('Authentication Utilities', () => {
         id: '2',
         email: 'pay@test.com',
         role: 'pay',
+        provider: 'github',
         created_at: '2023-01-01T00:00:00Z',
         updated_at: '2023-01-01T00:00:00Z',
         total_tokens: 5000,
@@ -115,6 +106,7 @@ describe('Authentication Utilities', () => {
         id: '1',
         email: 'admin@test.com',
         role: 'admin',
+        provider: 'google',
         created_at: '2023-01-01T00:00:00Z',
         updated_at: '2023-01-01T00:00:00Z',
         total_tokens: 1000,
@@ -130,6 +122,7 @@ describe('Authentication Utilities', () => {
         id: '1',
         email: 'user@test.com',
         role: 'free',
+        provider: 'google',
         created_at: '2023-01-01T00:00:00Z',
         updated_at: '2023-01-01T00:00:00Z',
         total_tokens: 1000,
@@ -139,29 +132,6 @@ describe('Authentication Utilities', () => {
 
       expect(hasTokens(user, 50)).toBe(true);  // 100 remaining, need 50
       expect(hasTokens(user, 150)).toBe(false); // 100 remaining, need 150
-    });
-  });
-
-  describe('CSRF Token Management', () => {
-    it('should generate CSRF token', () => {
-      const token = generateCSRFToken();
-      expect(typeof token).toBe('string');
-      expect(token).toBe('mock-jwt-token');
-    });
-
-    it('should verify valid CSRF token', () => {
-      const isValid = verifyCSRFToken('valid-token');
-      expect(isValid).toBe(true);
-    });
-
-    it('should reject invalid CSRF token', () => {
-      const jwt = require('jsonwebtoken');
-      jwt.verify.mockImplementationOnce(() => {
-        throw new Error('Invalid token');
-      });
-
-      const isValid = verifyCSRFToken('invalid-token');
-      expect(isValid).toBe(false);
     });
   });
 

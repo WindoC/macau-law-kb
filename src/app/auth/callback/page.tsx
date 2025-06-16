@@ -4,11 +4,10 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { Container, Alert, Spinner } from 'react-bootstrap'
-import { supabase } from '@/lib/supabase'
 
 /**
  * Authentication callback page
- * Handles OAuth callback from Google/GitHub and redirects user
+ * This page is now handled by API routes, but kept for compatibility
  */
 export default function AuthCallbackPage() {
   const router = useRouter()
@@ -18,17 +17,12 @@ export default function AuthCallbackPage() {
   useEffect(() => {
     const handleAuthCallback = async () => {
       try {
-        // Get the session from the URL hash
-        const { data, error } = await supabase.auth.getSession()
+        // Check if user is already authenticated
+        const response = await fetch('/api/profile', {
+          credentials: 'include'
+        })
         
-        if (error) {
-          console.error('Auth callback error:', error)
-          setError('認證失敗，請重新嘗試登入')
-          setLoading(false)
-          return
-        }
-
-        if (data.session) {
+        if (response.ok) {
           // User is authenticated, redirect to dashboard
           router.push('/')
         } else {
@@ -43,7 +37,9 @@ export default function AuthCallbackPage() {
       }
     }
 
-    handleAuthCallback()
+    // Add a small delay to allow any ongoing authentication to complete
+    const timer = setTimeout(handleAuthCallback, 1000)
+    return () => clearTimeout(timer)
   }, [router])
 
   if (loading) {

@@ -20,7 +20,7 @@ export interface SessionData {
 }
 
 /**
- * Search documents using vector similarity
+ * Search documents using vector similarity via PostgreSQL function
  * @param session - User session data
  * @param embedding - Query embedding vector
  * @param matchCount - Number of results to return
@@ -28,22 +28,15 @@ export interface SessionData {
  * @returns Promise<DocumentResult[]> - Array of matching documents
  */
 export async function searchDocuments(
-  session: SessionData,
+  // session: SessionData,
   embedding: number[],
   matchCount: number = 10,
   filter: Record<string, any> = {}
 ): Promise<DocumentResult[]> {
   try {
-    const embeddingStr = `[${embedding.join(',')}]`;
-    
     const results = await db.query<DocumentResult>(
-      `SELECT id, content, metadata, 
-              (embedding <=> $1::vector) as similarity
-       FROM documents 
-       WHERE (embedding <=> $1::vector) < 0.8
-       ORDER BY similarity ASC 
-       LIMIT $2`,
-      [embeddingStr, matchCount]
+      'SELECT * FROM match_documents($1, $2, $3)',
+      [embedding, matchCount, filter]
     );
     
     return results;

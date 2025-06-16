@@ -967,7 +967,7 @@ export async function POST(request: NextRequest) {
     const embedding = await generateEmbedding(query);
     
     // Search documents
-    const results = await searchDocuments(session, embedding, matchCount);
+    const results = await searchDocuments(embedding, matchCount);
     
     // Save search history and update token usage
     const documentIds = results.map(r => r.id);

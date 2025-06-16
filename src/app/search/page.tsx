@@ -45,11 +45,11 @@ export default function SearchPage() {
     setWarning(null);
     
     try {
-      // Get session token for authentication
-      const { getSessionToken } = await import('@/lib/auth-client');
-      const token = await getSessionToken();
+      // Check if user is authenticated
+      const { isAuthenticated } = await import('@/lib/auth-client');
+      const authenticated = await isAuthenticated();
       
-      if (!token) {
+      if (!authenticated) {
         setError('請先登入');
         return;
       }
@@ -58,8 +58,8 @@ export default function SearchPage() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
         },
+        credentials: 'include', // Include cookies for authentication
         body: JSON.stringify({ query }),
       });
 

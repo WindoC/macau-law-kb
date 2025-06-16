@@ -1,4 +1,4 @@
-import { saveConversation, saveConversationMessages } from '../database';
+import { saveConversation, saveConversationMessages, SessionData } from '../database-new';
 
 /**
  * Unit tests for conversation saving functionality
@@ -6,7 +6,12 @@ import { saveConversation, saveConversationMessages } from '../database';
  */
 
 describe('Conversation Database Functions', () => {
-  const mockUserId = 'test-user-id';
+  const mockSession: SessionData = {
+    userId: 'test-user-id',
+    email: 'test@example.com',
+    role: 'user',
+    provider: 'google'
+  };
   const mockMessages = [
     {
       role: 'user' as const,
@@ -23,7 +28,7 @@ describe('Conversation Database Functions', () => {
   describe('saveConversation', () => {
     it('should create a new conversation with messages', async () => {
       const conversationId = await saveConversation(
-        mockUserId,
+        mockSession,
         null, // New conversation
         mockMessages,
         '諮詢: 什麼是澳門的基本法？...',
@@ -39,7 +44,7 @@ describe('Conversation Database Functions', () => {
     it('should update an existing conversation', async () => {
       // First create a conversation
       const initialConversationId = await saveConversation(
-        mockUserId,
+        mockSession,
         null,
         [mockMessages[0]],
         '測試對話',
@@ -49,7 +54,7 @@ describe('Conversation Database Functions', () => {
 
       // Then update it with new messages
       const updatedConversationId = await saveConversation(
-        mockUserId,
+        mockSession,
         initialConversationId,
         mockMessages,
         undefined,
@@ -62,7 +67,7 @@ describe('Conversation Database Functions', () => {
 
     it('should handle Pro model conversations', async () => {
       const conversationId = await saveConversation(
-        mockUserId,
+        mockSession,
         null,
         mockMessages,
         'Pro 模型測試',
@@ -76,7 +81,7 @@ describe('Conversation Database Functions', () => {
 
     it('should handle empty messages array gracefully', async () => {
       const conversationId = await saveConversation(
-        mockUserId,
+        mockSession,
         null,
         [],
         '空對話測試',
@@ -92,7 +97,7 @@ describe('Conversation Database Functions', () => {
     it('should save messages to existing conversation', async () => {
       // Create a conversation first
       const conversationId = await saveConversation(
-        mockUserId,
+        mockSession,
         null,
         [],
         '訊息測試',
@@ -126,9 +131,16 @@ describe('Conversation Database Functions', () => {
 
   describe('Error Handling', () => {
     it('should throw error for invalid user ID', async () => {
+      const invalidSession: SessionData = {
+        userId: 'invalid-user-id',
+        email: 'invalid@example.com',
+        role: 'user',
+        provider: 'google'
+      };
+      
       await expect(
         saveConversation(
-          'invalid-user-id',
+          invalidSession,
           null,
           mockMessages,
           '錯誤測試'
@@ -160,7 +172,7 @@ describe('Conversation Database Functions', () => {
       ];
 
       await expect(
-        saveConversation(mockUserId, null, invalidMessages, '驗證測試')
+        saveConversation(mockSession, null, invalidMessages, '驗證測試')
       ).rejects.toThrow();
     });
 
@@ -172,7 +184,7 @@ describe('Conversation Database Functions', () => {
       };
 
       await expect(
-        saveConversation(mockUserId, null, [longMessage], '長訊息測試')
+        saveConversation(mockSession, null, [longMessage], '長訊息測試')
       ).resolves.toBeDefined();
     });
 
@@ -186,7 +198,7 @@ describe('Conversation Database Functions', () => {
       // The function should handle invalid timestamps gracefully
       // or throw an appropriate error
       await expect(
-        saveConversation(mockUserId, null, [invalidTimestampMessage], '時間戳測試')
+        saveConversation(mockSession, null, [invalidTimestampMessage], '時間戳測試')
       ).resolves.toBeDefined();
     });
   });
@@ -197,7 +209,13 @@ describe('Conversation Database Functions', () => {
  */
 describe('Conversation Integration Tests', () => {
   it('should handle complete conversation lifecycle', async () => {
-    const userId = 'integration-test-user';
+    const integrationSession: SessionData = {
+      userId: 'integration-test-user',
+      email: 'integration@example.com',
+      role: 'user',
+      provider: 'github'
+    };
+    
     const initialMessage = {
       role: 'user' as const,
       content: '澳門有哪些重要的法律？',
@@ -206,7 +224,7 @@ describe('Conversation Integration Tests', () => {
 
     // 1. Create new conversation
     const conversationId = await saveConversation(
-      userId,
+      integrationSession,
       null,
       [initialMessage],
       '諮詢: 澳門有哪些重要的法律？...',
@@ -224,7 +242,7 @@ describe('Conversation Integration Tests', () => {
     };
 
     const updatedConversationId = await saveConversation(
-      userId,
+      integrationSession,
       conversationId,
       [initialMessage, assistantMessage],
       undefined,
