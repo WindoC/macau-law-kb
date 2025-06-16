@@ -1,3 +1,6 @@
+// Load environment variables from .env.local and .env files
+require('dotenv').config({ path: '.env.local' });
+
 const { Pool } = require('pg');
 
 async function healthCheck() {

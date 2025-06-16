@@ -5,6 +5,13 @@
  * Helps users set up their environment variables and validate configuration
  */
 
+// Load environment variables if they exist
+try {
+  require('dotenv').config({ path: '.env.local' });
+} catch (error) {
+  // dotenv not installed yet, that's okay
+}
+
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
