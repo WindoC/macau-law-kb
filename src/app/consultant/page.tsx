@@ -54,11 +54,11 @@ export default function ConsultantPage() {
     setStreamingResponse('');
 
     try {
-      // Get session token for authentication
-      const { getSessionToken } = await import('@/lib/auth-client');
-      const token = await getSessionToken();
+      // Check authentication
+      const { isAuthenticated } = await import('@/lib/auth-client');
+      const authenticated = await isAuthenticated();
       
-      if (!token) {
+      if (!authenticated) {
         setError('請先登入');
         setLoading(false);
         return;
@@ -75,8 +75,8 @@ export default function ConsultantPage() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
         },
+        credentials: 'include',
         body: JSON.stringify(requestBody),
       });
 

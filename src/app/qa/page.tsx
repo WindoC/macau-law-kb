@@ -65,10 +65,10 @@ export default function QAPage() {
     setCurrentStep('');
 
     try {
-      const { getSessionToken } = await import('@/lib/auth-client');
-      const token = await getSessionToken();
+      const { isAuthenticated } = await import('@/lib/auth-client');
+      const authenticated = await isAuthenticated();
       
-      if (!token) {
+      if (!authenticated) {
         setError('請先登入');
         setLoading(false);
         return;
@@ -78,8 +78,8 @@ export default function QAPage() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
         },
+        credentials: 'include',
         body: JSON.stringify({ question }),
       });
 

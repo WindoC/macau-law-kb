@@ -1,13 +1,18 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { supabase } from '@/lib/supabase';
 import Navigation from '@/components/Navigation';
 
+interface User {
+  id: string;
+  email: string;
+  name?: string;
+  avatar_url?: string;
+  provider: string;
+}
+
 export default function DebugPage() {
-  const [user, setUser] = useState<any>(null);
-  const [session, setSession] = useState<any>(null);
-  const [token, setToken] = useState<string | null>(null);
+  const [user, setUser] = useState<User | null>(null);
   const [debugResult, setDebugResult] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
@@ -17,38 +22,29 @@ export default function DebugPage() {
 
   const checkAuth = async () => {
     try {
-      // Get current user
-      const { data: { user }, error: userError } = await supabase.auth.getUser();
-      console.log('Current user:', user, 'Error:', userError);
-      setUser(user);
-
-      // Get current session
-      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-      console.log('Current session:', session, 'Error:', sessionError);
-      setSession(session);
-
-      if (session?.access_token) {
-        setToken(session.access_token);
+      const response = await fetch('/api/profile', {
+        credentials: 'include'
+      });
+      
+      if (response.ok) {
+        const userData = await response.json();
+        setUser(userData);
+      } else {
+        setUser(null);
       }
     } catch (error) {
       console.error('Auth check error:', error);
+      setUser(null);
     } finally {
       setLoading(false);
     }
   };
 
   const testDebugAPI = async () => {
-    if (!token) {
-      alert('No token available');
-      return;
-    }
-
     try {
       const response = await fetch('/api/debug-auth', {
         method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
+        credentials: 'include'
       });
 
       const result = await response.json();
@@ -60,29 +56,28 @@ export default function DebugPage() {
     }
   };
 
-  const signInWithGoogle = async () => {
-    try {
-      const { error } = await supabase.auth.signInWithOAuth({
-        provider: 'google',
-        options: {
-          redirectTo: `${window.location.origin}/debug`
-        }
-      });
-      if (error) throw error;
-    } catch (error) {
-      console.error('Sign in error:', error);
-      alert('Sign in failed: ' + (error as Error).message);
-    }
+  const signInWithGoogle = () => {
+    window.location.href = '/api/auth/google';
+  };
+
+  const signInWithGitHub = () => {
+    window.location.href = '/api/auth/github';
   };
 
   const signOut = async () => {
     try {
-      const { error } = await supabase.auth.signOut();
-      if (error) throw error;
-      setUser(null);
-      setSession(null);
-      setToken(null);
-      setDebugResult(null);
+      const response = await fetch('/api/auth/logout', {
+        method: 'POST',
+        credentials: 'include'
+      });
+      
+      if (response.ok) {
+        setUser(null);
+        setDebugResult(null);
+        window.location.href = '/';
+      } else {
+        console.error('Sign out failed');
+      }
     } catch (error) {
       console.error('Sign out error:', error);
     }
@@ -118,14 +113,19 @@ export default function DebugPage() {
               </div>
               <div className="card-body">
                 <p><strong>User:</strong> {user ? `${user.email} (${user.id})` : 'Not logged in'}</p>
-                <p><strong>Session:</strong> {session ? 'Active' : 'None'}</p>
-                <p><strong>Token:</strong> {token ? `${token.substring(0, 20)}...` : 'None'}</p>
+                <p><strong>Provider:</strong> {user?.provider || 'None'}</p>
+                <p><strong>Name:</strong> {user?.name || 'None'}</p>
                 
                 <div className="mt-3">
                   {!user ? (
-                    <button className="btn btn-primary" onClick={signInWithGoogle}>
-                      Sign in with Google
-                    </button>
+                    <div className="d-grid gap-2">
+                      <button className="btn btn-primary" onClick={signInWithGoogle}>
+                        Sign in with Google
+                      </button>
+                      <button className="btn btn-dark" onClick={signInWithGitHub}>
+                        Sign in with GitHub
+                      </button>
+                    </div>
                   ) : (
                     <button className="btn btn-danger" onClick={signOut}>
                       Sign out
@@ -145,7 +145,7 @@ export default function DebugPage() {
                 <button 
                   className="btn btn-success" 
                   onClick={testDebugAPI}
-                  disabled={!token}
+                  disabled={!user}
                 >
                   Test Debug API
                 </button>
@@ -173,11 +173,6 @@ export default function DebugPage() {
                 <h6>User Object:</h6>
                 <pre className="bg-light p-2 rounded">
                   {JSON.stringify(user, null, 2)}
-                </pre>
-                
-                <h6 className="mt-3">Session Object:</h6>
-                <pre className="bg-light p-2 rounded">
-                  {JSON.stringify(session, null, 2)}
                 </pre>
               </div>
             </div>

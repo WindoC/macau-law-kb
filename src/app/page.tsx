@@ -3,11 +3,17 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { Container, Row, Col, Card, Button } from 'react-bootstrap'
-import { supabase } from '@/lib/supabase'
-import type { User } from '@supabase/supabase-js'
 import CaptchaWidget from '@/components/CaptchaWidget'
 import { validateCaptchaToken, CAPTCHA_ERRORS } from '@/lib/captcha'
 import LegalInformationSection from '@/components/LegalInformationSection'
+
+interface User {
+  id: string
+  email: string
+  name?: string
+  avatar_url?: string
+  provider: string
+}
 
 /**
  * Main landing page component
@@ -18,22 +24,29 @@ export default function HomePage() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    // Get initial session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setUser(session?.user ?? null)
-      setLoading(false)
-    })
-
-    // Listen for auth changes
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user ?? null)
-      setLoading(false)
-    })
-
-    return () => subscription.unsubscribe()
+    // Check authentication status
+    checkAuthStatus()
   }, [])
+
+  const checkAuthStatus = async () => {
+    try {
+      const response = await fetch('/api/profile', {
+        credentials: 'include'
+      })
+      
+      if (response.ok) {
+        const userData = await response.json()
+        setUser(userData)
+      } else {
+        setUser(null)
+      }
+    } catch (error) {
+      console.error('Auth check error:', error)
+      setUser(null)
+    } finally {
+      setLoading(false)
+    }
+  }
 
   if (loading) {
     return (
@@ -71,23 +84,12 @@ function LandingPage() {
     setCaptchaError(null)
 
     try {
-      const { error } = await supabase.auth.signInWithOAuth({
-        provider,
-        options: {
-          redirectTo: `${typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000'}/auth/callback`
-        }
-      })
-      
-      if (error) {
-        console.error('Login error:', error)
-        alert('登入失敗，請稍後再試')
-        setCaptchaToken(null) // Reset CAPTCHA on error
-      }
+      // Redirect to our authentication endpoint
+      window.location.href = `/api/auth/${provider}`
     } catch (error) {
       console.error('Login error:', error)
       alert('登入失敗，請稍後再試')
       setCaptchaToken(null) // Reset CAPTCHA on error
-    } finally {
       setLoginLoading(false)
     }
   }
@@ -282,9 +284,16 @@ function LandingPage() {
 function DashboardPage({ user }: { user: User }) {
   const handleLogout = async () => {
     try {
-      const { error } = await supabase.auth.signOut()
-      if (error) {
-        console.error('Logout error:', error)
+      const response = await fetch('/api/auth/logout', {
+        method: 'POST',
+        credentials: 'include'
+      })
+      
+      if (response.ok) {
+        // Redirect to home page after successful logout
+        window.location.href = '/'
+      } else {
+        console.error('Logout failed')
         alert('登出失敗，請稍後再試')
       }
     } catch (error) {
@@ -309,7 +318,7 @@ function DashboardPage({ user }: { user: User }) {
                 role="button"
                 data-bs-toggle="dropdown"
               >
-                {user.user_metadata?.name || user.email}
+                {user.name || user.email}
               </a>
               <ul className="dropdown-menu">
                 <li><a className="dropdown-item" href="/profile">個人資料</a></li>
@@ -329,7 +338,7 @@ function DashboardPage({ user }: { user: User }) {
       <Container className="py-4">
         <Row className="mb-4">
           <Col>
-            <h1>歡迎回來，{user.user_metadata?.name || '用戶'}</h1>
+            <h1>歡迎回來，{user.name || '用戶'}</h1>
             <p className="text-muted">選擇您需要的法律服務</p>
           </Col>
         </Row>
