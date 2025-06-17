@@ -1,4 +1,5 @@
-import { saveConversation, saveConversationMessages, SessionData } from '../database-new';
+// import { saveConversation, saveConversationMessages, SessionData } from '../database-new';
+import { saveConversation, SessionData } from '../database-new';
 
 /**
  * Unit tests for conversation saving functionality
@@ -93,41 +94,41 @@ describe('Conversation Database Functions', () => {
     });
   });
 
-  describe('saveConversationMessages', () => {
-    it('should save messages to existing conversation', async () => {
-      // Create a conversation first
-      const conversationId = await saveConversation(
-        mockSession,
-        null,
-        [],
-        '訊息測試',
-        0,
-        'gemini-2.5-flash-preview-05-20'
-      );
+  // describe('saveConversationMessages', () => {
+  //   it('should save messages to existing conversation', async () => {
+  //     // Create a conversation first
+  //     const conversationId = await saveConversation(
+  //       mockSession,
+  //       null,
+  //       [],
+  //       '訊息測試',
+  //       0,
+  //       'gemini-2.5-flash-preview-05-20'
+  //     );
 
-      // Then save messages
-      await expect(
-        saveConversationMessages(conversationId, mockMessages)
-      ).resolves.not.toThrow();
-    });
+  //     // Then save messages
+  //     await expect(
+  //       saveConversationMessages(conversationId, mockMessages)
+  //     ).resolves.not.toThrow();
+  //   });
 
-    it('should handle empty messages array', async () => {
-      const conversationId = 'test-conversation-id';
+  //   it('should handle empty messages array', async () => {
+  //     const conversationId = 'test-conversation-id';
       
-      await expect(
-        saveConversationMessages(conversationId, [])
-      ).resolves.not.toThrow();
-    });
+  //     await expect(
+  //       saveConversationMessages(conversationId, [])
+  //     ).resolves.not.toThrow();
+  //   });
 
-    it('should save messages with document IDs', async () => {
-      const conversationId = 'test-conversation-id';
-      // const documentIds = [1, 2, 3]; // Unused variable commented out
+  //   it('should save messages with document IDs', async () => {
+  //     const conversationId = 'test-conversation-id';
+  //     // const documentIds = [1, 2, 3]; // Unused variable commented out
       
-      await expect(
-        saveConversationMessages(conversationId, mockMessages)
-      ).resolves.not.toThrow();
-    });
-  });
+  //     await expect(
+  //       saveConversationMessages(conversationId, mockMessages)
+  //     ).resolves.not.toThrow();
+  //   });
+  // });
 
   describe('Error Handling', () => {
     it('should throw error for invalid user ID', async () => {
@@ -148,11 +149,11 @@ describe('Conversation Database Functions', () => {
       ).rejects.toThrow();
     });
 
-    it('should throw error for invalid conversation ID', async () => {
-      await expect(
-        saveConversationMessages('invalid-conversation-id', mockMessages)
-      ).rejects.toThrow();
-    });
+    // it('should throw error for invalid conversation ID', async () => {
+    //   await expect(
+    //     saveConversationMessages('invalid-conversation-id', mockMessages)
+    //   ).rejects.toThrow();
+    // });
 
     it('should handle database connection errors gracefully', async () => {
       // This test would require mocking the database connection

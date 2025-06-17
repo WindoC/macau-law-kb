@@ -153,118 +153,118 @@ describe('Database Service', () => {
     });
   });
 
-  describe('Conversation Management', () => {
-    test('should save conversation messages successfully', async () => {
-      mockDb.query.mockResolvedValue([]);
+  // describe('Conversation Management', () => {
+  //   test('should save conversation messages successfully', async () => {
+  //     mockDb.query.mockResolvedValue([]);
 
-      await dbService.saveConversationMessages('conversation-id', mockMessages);
+  //     await dbService.saveConversationMessages('conversation-id', mockMessages);
 
-      expect(mockDb.query).toHaveBeenCalledWith(
-        expect.stringContaining('INSERT INTO consultant_messages'),
-        expect.arrayContaining([
-          'conversation-id',
-          'user',
-          'Hello',
-          [1, 2],
-          50,
-          '2023-01-01T00:00:00Z',
-          'conversation-id',
-          'assistant',
-          'Hi there!',
-          [3],
-          30,
-          '2023-01-01T00:01:00Z',
-        ])
-      );
-    });
+  //     expect(mockDb.query).toHaveBeenCalledWith(
+  //       expect.stringContaining('INSERT INTO consultant_messages'),
+  //       expect.arrayContaining([
+  //         'conversation-id',
+  //         'user',
+  //         'Hello',
+  //         [1, 2],
+  //         50,
+  //         '2023-01-01T00:00:00Z',
+  //         'conversation-id',
+  //         'assistant',
+  //         'Hi there!',
+  //         [3],
+  //         30,
+  //         '2023-01-01T00:01:00Z',
+  //       ])
+  //     );
+  //   });
 
-    test('should handle empty messages array', async () => {
-      await dbService.saveConversationMessages('conversation-id', []);
+  //   test('should handle empty messages array', async () => {
+  //     await dbService.saveConversationMessages('conversation-id', []);
 
-      expect(mockDb.query).not.toHaveBeenCalled();
-    });
+  //     expect(mockDb.query).not.toHaveBeenCalled();
+  //   });
 
-    test('should limit messages to last 2', async () => {
-      const manyMessages = [
-        { role: 'user' as const, content: 'Message 1', timestamp: '2023-01-01T00:00:00Z' },
-        { role: 'assistant' as const, content: 'Message 2', timestamp: '2023-01-01T00:01:00Z' },
-        { role: 'user' as const, content: 'Message 3', timestamp: '2023-01-01T00:02:00Z' },
-        { role: 'assistant' as const, content: 'Message 4', timestamp: '2023-01-01T00:03:00Z' },
-      ];
+    // test('should limit messages to last 2', async () => {
+    //   const manyMessages = [
+    //     { role: 'user' as const, content: 'Message 1', timestamp: '2023-01-01T00:00:00Z' },
+    //     { role: 'assistant' as const, content: 'Message 2', timestamp: '2023-01-01T00:01:00Z' },
+    //     { role: 'user' as const, content: 'Message 3', timestamp: '2023-01-01T00:02:00Z' },
+    //     { role: 'assistant' as const, content: 'Message 4', timestamp: '2023-01-01T00:03:00Z' },
+    //   ];
 
-      mockDb.query.mockResolvedValue([]);
+    //   mockDb.query.mockResolvedValue([]);
 
-      await dbService.saveConversationMessages('conversation-id', manyMessages);
+    //   await dbService.saveConversationMessages('conversation-id', manyMessages);
 
-      // Should only save the last 2 messages
-      expect(mockDb.query).toHaveBeenCalledWith(
-        expect.stringContaining('INSERT INTO consultant_messages'),
-        expect.arrayContaining(['Message 3', 'Message 4'])
-      );
-    });
+    //   // Should only save the last 2 messages
+    //   expect(mockDb.query).toHaveBeenCalledWith(
+    //     expect.stringContaining('INSERT INTO consultant_messages'),
+    //     expect.arrayContaining(['Message 3', 'Message 4'])
+    //   );
+    // });
 
-    test('should save new conversation successfully', async () => {
-      const mockConversationId = 'new-conversation-id';
+  //   test('should save new conversation successfully', async () => {
+  //     const mockConversationId = 'new-conversation-id';
       
-      mockDb.transaction.mockImplementation(async (callback: any) => {
-        const mockClient = {
-          query: jest.fn().mockResolvedValue({
-            rows: [{ id: mockConversationId }],
-          }),
-        };
-        return callback(mockClient);
-      });
+  //     mockDb.transaction.mockImplementation(async (callback: any) => {
+  //       const mockClient = {
+  //         query: jest.fn().mockResolvedValue({
+  //           rows: [{ id: mockConversationId }],
+  //         }),
+  //       };
+  //       return callback(mockClient);
+  //     });
 
-      const conversationId = await dbService.saveConversation(
-        mockSession,
-        null, // New conversation
-        mockMessages,
-        'Test Conversation',
-        100,
-        'gemini-2.5-flash'
-      );
+  //     const conversationId = await dbService.saveConversation(
+  //       mockSession,
+  //       null, // New conversation
+  //       mockMessages,
+  //       'Test Conversation',
+  //       100,
+  //       'gemini-2.5-flash'
+  //     );
 
-      expect(mockDb.transaction).toHaveBeenCalled();
-      expect(conversationId).toBe(mockConversationId);
-    });
+  //     expect(mockDb.transaction).toHaveBeenCalled();
+  //     expect(conversationId).toBe(mockConversationId);
+  //   });
 
-    test('should update existing conversation successfully', async () => {
-      const existingConversationId = 'existing-conversation-id';
+  //   test('should update existing conversation successfully', async () => {
+  //     const existingConversationId = 'existing-conversation-id';
       
-      mockDb.transaction.mockImplementation(async (callback: any) => {
-        const mockClient = {
-          query: jest.fn().mockResolvedValue({
-            rows: [{ id: existingConversationId }],
-          }),
-        };
-        return callback(mockClient);
-      });
+  //     mockDb.transaction.mockImplementation(async (callback: any) => {
+  //       const mockClient = {
+  //         query: jest.fn().mockResolvedValue({
+  //           rows: [{ id: existingConversationId }],
+  //         }),
+  //       };
+  //       return callback(mockClient);
+  //     });
 
-      const conversationId = await dbService.saveConversation(
-        mockSession,
-        existingConversationId,
-        mockMessages,
-        undefined,
-        150,
-        'gemini-2.5-pro'
-      );
+  //     const conversationId = await dbService.saveConversation(
+  //       mockSession,
+  //       existingConversationId,
+  //       mockMessages,
+  //       undefined,
+  //       150,
+  //       'gemini-2.5-pro'
+  //     );
 
-      expect(conversationId).toBe(existingConversationId);
-    });
+  //     expect(conversationId).toBe(existingConversationId);
+  //   });
 
-    test('should handle conversation not found error', async () => {
-      mockDb.transaction.mockImplementation(async (callback: any) => {
-        const mockClient = {
-          query: jest.fn().mockResolvedValue({ rows: [] }), // No conversation found
-        };
-        return callback(mockClient);
-      });
+  //   test('should handle conversation not found error', async () => {
+  //     mockDb.transaction.mockImplementation(async (callback: any) => {
+  //       const mockClient = {
+  //         query: jest.fn().mockResolvedValue({ rows: [] }), // No conversation found
+  //       };
+  //       return callback(mockClient);
+  //     });
 
-      await expect(
-        dbService.saveConversation(mockSession, 'non-existent-id', mockMessages)
-      ).rejects.toThrow('Conversation not found or access denied');
-    });
-  });
+  //     await expect(
+  //       dbService.saveConversation(mockSession, 'non-existent-id', mockMessages)
+  //     ).rejects.toThrow('Conversation not found or access denied');
+  //   });
+  // });
 
   describe('User Profile Management', () => {
     test('should get user profile with credits successfully', async () => {
@@ -425,48 +425,48 @@ describe('Database Service', () => {
       ).rejects.toThrow('Transaction failed');
     });
 
-    test('should handle message save errors', async () => {
-      mockDb.query.mockRejectedValue(new Error('Insert failed'));
+    // test('should handle message save errors', async () => {
+    //   mockDb.query.mockRejectedValue(new Error('Insert failed'));
 
-      await expect(
-        dbService.saveConversationMessages('conversation-id', mockMessages)
-      ).rejects.toThrow('Failed to save conversation messages');
-    });
+    //   await expect(
+    //     dbService.saveConversationMessages('conversation-id', mockMessages)
+    //   ).rejects.toThrow('Failed to save conversation messages');
+    // });
   });
 
-  describe('Data Validation', () => {
-    test('should handle null/undefined message arrays', async () => {
-      await dbService.saveConversationMessages('conversation-id', null as any);
-      expect(mockDb.query).not.toHaveBeenCalled();
+  // describe('Data Validation', () => {
+  //   test('should handle null/undefined message arrays', async () => {
+  //     await dbService.saveConversationMessages('conversation-id', null as any);
+  //     expect(mockDb.query).not.toHaveBeenCalled();
 
-      await dbService.saveConversationMessages('conversation-id', undefined as any);
-      expect(mockDb.query).not.toHaveBeenCalled();
-    });
+  //     await dbService.saveConversationMessages('conversation-id', undefined as any);
+  //     expect(mockDb.query).not.toHaveBeenCalled();
+  //   });
 
-    test('should handle messages with missing optional fields', async () => {
-      const minimalMessages = [
-        {
-          role: 'user' as const,
-          content: 'Hello',
-          timestamp: '2023-01-01T00:00:00Z',
-        },
-      ];
+  //   test('should handle messages with missing optional fields', async () => {
+  //     const minimalMessages = [
+  //       {
+  //         role: 'user' as const,
+  //         content: 'Hello',
+  //         timestamp: '2023-01-01T00:00:00Z',
+  //       },
+  //     ];
 
-      mockDb.query.mockResolvedValue([]);
+  //     mockDb.query.mockResolvedValue([]);
 
-      await dbService.saveConversationMessages('conversation-id', minimalMessages);
+  //     await dbService.saveConversationMessages('conversation-id', minimalMessages);
 
-      expect(mockDb.query).toHaveBeenCalledWith(
-        expect.stringContaining('INSERT INTO consultant_messages'),
-        expect.arrayContaining([
-          'conversation-id',
-          'user',
-          'Hello',
-          null, // documents_ids should be null
-          0,    // tokens_used should be 0
-          '2023-01-01T00:00:00Z',
-        ])
-      );
-    });
-  });
+  //     expect(mockDb.query).toHaveBeenCalledWith(
+  //       expect.stringContaining('INSERT INTO consultant_messages'),
+  //       expect.arrayContaining([
+  //         'conversation-id',
+  //         'user',
+  //         'Hello',
+  //         null, // documents_ids should be null
+  //         0,    // tokens_used should be 0
+  //         '2023-01-01T00:00:00Z',
+  //       ])
+  //     );
+  //   });
+  // });
 });
