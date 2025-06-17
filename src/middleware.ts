@@ -85,7 +85,7 @@ export async function middleware(request: NextRequest) {
     
     // If token exists, allow request to proceed
     // Authentication verification will happen in API routes using Node.js runtime
-    console.log('TEMPORARY: Allowing request with token to proceed, verification deferred to API routes');
+    // console.log('TEMPORARY: Allowing request with token to proceed, verification deferred to API routes');
   }
   
   return NextResponse.next();
