@@ -22,7 +22,7 @@ class DatabaseManager {
       this.pool = new Pool({
         connectionString: process.env.DATABASE_URL,
         ssl: process.env.DB_SSL === 'true' ? {
-          rejectUnauthorized: false
+          rejectUnauthorized: false,
         } : false,
         max: 10, // Reduced pool size for better connection management
         idleTimeoutMillis: 30000,
@@ -39,7 +39,7 @@ class DatabaseManager {
         user: process.env.DB_USER!,
         password: process.env.DB_PASSWORD!,
         ssl: process.env.DB_SSL === 'true' ? {
-          rejectUnauthorized: false
+          rejectUnauthorized: false,
         } : false,
         max: 10,
         idleTimeoutMillis: 30000,
@@ -68,15 +68,15 @@ class DatabaseManager {
    * @returns Promise resolving to query results
    */
   async query<T extends QueryResultRow = any>(text: string, params?: any[]): Promise<T[]> {
-    const start = Date.now();
+    // const start = Date.now();
     try {
       const result: QueryResult<T> = await this.pool.query(text, params);
-      const duration = Date.now() - start;
-      console.log('Executed query', {
-        text: text.substring(0, 100),
-        duration,
-        rows: result.rowCount
-      });
+      // const duration = Date.now() - start;
+      // console.log('Executed query', {
+      //   text: text.substring(0, 100),
+      //   duration,
+      //   rows: result.rowCount
+      // });
       return result.rows;
     } catch (error) {
       console.error('Database query error:', { text, params, error });
