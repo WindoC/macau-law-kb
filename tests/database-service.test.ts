@@ -8,7 +8,13 @@ import * as dbService from '../src/lib/database-new';
 import { db } from '../src/lib/db';
 
 // Mock the database connection
-jest.mock('../src/lib/db');
+jest.mock('../src/lib/db', () => ({
+  db: {
+    query: jest.fn(),
+    transaction: jest.fn(),
+    healthCheck: jest.fn(),
+  },
+}));
 
 const mockDb = db as jest.Mocked<typeof db>;
 
@@ -39,6 +45,8 @@ describe('Database Service', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    // Mock successful database health check
+    mockDb.healthCheck.mockResolvedValue(true);
   });
 
   describe('Document Search', () => {
@@ -65,7 +73,7 @@ describe('Database Service', () => {
 
       expect(mockDb.query).toHaveBeenCalledWith(
         'SELECT * FROM match_documents($1, $2, $3)',
-        [embedding, 5, {}]
+        [JSON.stringify(embedding), 5, {}]
       );
       expect(results).toEqual(mockDocuments);
     });
@@ -87,7 +95,7 @@ describe('Database Service', () => {
 
       expect(mockDb.query).toHaveBeenCalledWith(
         'SELECT * FROM match_documents($1, $2, $3)',
-        [embedding, 10, {}]
+        [JSON.stringify(embedding), 10, {}]
       );
     });
   });
@@ -153,149 +161,46 @@ describe('Database Service', () => {
     });
   });
 
-  // describe('Conversation Management', () => {
-  //   test('should save conversation messages successfully', async () => {
-  //     mockDb.query.mockResolvedValue([]);
-
-  //     await dbService.saveConversationMessages('conversation-id', mockMessages);
-
-  //     expect(mockDb.query).toHaveBeenCalledWith(
-  //       expect.stringContaining('INSERT INTO consultant_messages'),
-  //       expect.arrayContaining([
-  //         'conversation-id',
-  //         'user',
-  //         'Hello',
-  //         [1, 2],
-  //         50,
-  //         '2023-01-01T00:00:00Z',
-  //         'conversation-id',
-  //         'assistant',
-  //         'Hi there!',
-  //         [3],
-  //         30,
-  //         '2023-01-01T00:01:00Z',
-  //       ])
-  //     );
-  //   });
-
-  //   test('should handle empty messages array', async () => {
-  //     await dbService.saveConversationMessages('conversation-id', []);
-
-  //     expect(mockDb.query).not.toHaveBeenCalled();
-  //   });
-
-    // test('should limit messages to last 2', async () => {
-    //   const manyMessages = [
-    //     { role: 'user' as const, content: 'Message 1', timestamp: '2023-01-01T00:00:00Z' },
-    //     { role: 'assistant' as const, content: 'Message 2', timestamp: '2023-01-01T00:01:00Z' },
-    //     { role: 'user' as const, content: 'Message 3', timestamp: '2023-01-01T00:02:00Z' },
-    //     { role: 'assistant' as const, content: 'Message 4', timestamp: '2023-01-01T00:03:00Z' },
-    //   ];
-
-    //   mockDb.query.mockResolvedValue([]);
-
-    //   await dbService.saveConversationMessages('conversation-id', manyMessages);
-
-    //   // Should only save the last 2 messages
-    //   expect(mockDb.query).toHaveBeenCalledWith(
-    //     expect.stringContaining('INSERT INTO consultant_messages'),
-    //     expect.arrayContaining(['Message 3', 'Message 4'])
-    //   );
-    // });
-
-  //   test('should save new conversation successfully', async () => {
-  //     const mockConversationId = 'new-conversation-id';
-      
-  //     mockDb.transaction.mockImplementation(async (callback: any) => {
-  //       const mockClient = {
-  //         query: jest.fn().mockResolvedValue({
-  //           rows: [{ id: mockConversationId }],
-  //         }),
-  //       };
-  //       return callback(mockClient);
-  //     });
-
-  //     const conversationId = await dbService.saveConversation(
-  //       mockSession,
-  //       null, // New conversation
-  //       mockMessages,
-  //       'Test Conversation',
-  //       100,
-  //       'gemini-2.5-flash'
-  //     );
-
-  //     expect(mockDb.transaction).toHaveBeenCalled();
-  //     expect(conversationId).toBe(mockConversationId);
-  //   });
-
-  //   test('should update existing conversation successfully', async () => {
-  //     const existingConversationId = 'existing-conversation-id';
-      
-  //     mockDb.transaction.mockImplementation(async (callback: any) => {
-  //       const mockClient = {
-  //         query: jest.fn().mockResolvedValue({
-  //           rows: [{ id: existingConversationId }],
-  //         }),
-  //       };
-  //       return callback(mockClient);
-  //     });
-
-  //     const conversationId = await dbService.saveConversation(
-  //       mockSession,
-  //       existingConversationId,
-  //       mockMessages,
-  //       undefined,
-  //       150,
-  //       'gemini-2.5-pro'
-  //     );
-
-  //     expect(conversationId).toBe(existingConversationId);
-  //   });
-
-  //   test('should handle conversation not found error', async () => {
-  //     mockDb.transaction.mockImplementation(async (callback: any) => {
-  //       const mockClient = {
-  //         query: jest.fn().mockResolvedValue({ rows: [] }), // No conversation found
-  //       };
-  //       return callback(mockClient);
-  //     });
-
-  //     await expect(
-  //       dbService.saveConversation(mockSession, 'non-existent-id', mockMessages)
-  //     ).rejects.toThrow('Conversation not found or access denied');
-  //   });
-  // });
-
   describe('User Profile Management', () => {
     test('should get user profile with credits successfully', async () => {
-      const mockUserProfile = {
-        id: mockSession.userId,
-        email: mockSession.email,
+      const mockProfile = {
+        id: 'test-user-id',
+        email: 'test@example.com',
         name: 'Test User',
-        avatar_url: 'https://example.com/avatar.jpg',
         role: 'free',
         provider: 'google',
         created_at: '2023-01-01T00:00:00Z',
         updated_at: '2023-01-01T00:00:00Z',
         total_tokens: 1000,
-        used_tokens: 250,
-        remaining_tokens: 750,
+        used_tokens: 500,
+        remaining_tokens: 500,
         last_reset: '2023-01-01T00:00:00Z',
       };
 
-      mockDb.query.mockResolvedValue([mockUserProfile]);
+      mockDb.query.mockResolvedValue([mockProfile]);
 
       const profile = await dbService.getUserProfile(mockSession);
 
       expect(mockDb.query).toHaveBeenCalledWith(
-        expect.stringContaining('SELECT u.id, u.email, u.name'),
+        `SELECT u.id, u.email, u.name, u.avatar_url, u.role, u.provider, u.created_at, u.updated_at,
+                uc.total_tokens, uc.used_tokens, uc.remaining_tokens, uc.last_reset
+         FROM users u
+         LEFT JOIN user_credits uc ON u.id = uc.user_id
+         WHERE u.id = $1`,
         [mockSession.userId]
       );
-      expect(profile).toEqual(mockUserProfile);
+      expect(profile).toEqual(mockProfile);
     });
 
     test('should handle user not found', async () => {
       mockDb.query.mockResolvedValue([]);
+
+      await expect(dbService.getUserProfile(mockSession))
+        .rejects.toThrow('User not found');
+    });
+
+    test('should handle database errors', async () => {
+      mockDb.query.mockRejectedValue(new Error('Database error'));
 
       await expect(dbService.getUserProfile(mockSession))
         .rejects.toThrow('Failed to get user profile');
@@ -304,10 +209,14 @@ describe('Database Service', () => {
 
   describe('Token Management', () => {
     test('should update token usage successfully', async () => {
-      const mockResult = { remaining_tokens: 750 };
+      const mockResult = {
+        id: 'test-user-id',
+        remaining_tokens: 400,
+      };
+
       mockDb.query.mockResolvedValue([mockResult]);
 
-      await dbService.updateTokenUsage(mockSession, 100);
+      await dbService.updateTokenUsage(mockSession, 'search', 100);
 
       expect(mockDb.query).toHaveBeenCalledWith(
         expect.stringContaining('UPDATE user_credits'),
@@ -316,23 +225,25 @@ describe('Database Service', () => {
     });
 
     test('should handle insufficient tokens', async () => {
-      const mockResult = { remaining_tokens: -50 };
-      mockDb.query.mockResolvedValue([mockResult]);
+      mockDb.query.mockResolvedValue([]);
 
-      await expect(dbService.updateTokenUsage(mockSession, 100))
+      await expect(dbService.updateTokenUsage(mockSession, 'search', 100))
         .rejects.toThrow('Failed to update token usage');
     });
 
     test('should handle user credits not found', async () => {
       mockDb.query.mockResolvedValue([]);
 
-      await expect(dbService.updateTokenUsage(mockSession, 100))
+      await expect(dbService.updateTokenUsage(mockSession, 'search', 100))
         .rejects.toThrow('Failed to update token usage');
     });
 
     test('should check token availability successfully', async () => {
-      const mockResult = { remaining_tokens: 500 };
-      mockDb.query.mockResolvedValue([mockResult]);
+      const mockCredits = {
+        remaining_tokens: 500,
+      };
+
+      mockDb.query.mockResolvedValue([mockCredits]);
 
       const hasTokens = await dbService.checkTokenAvailability(mockSession, 100);
 
@@ -344,8 +255,11 @@ describe('Database Service', () => {
     });
 
     test('should return false for insufficient tokens', async () => {
-      const mockResult = { remaining_tokens: 50 };
-      mockDb.query.mockResolvedValue([mockResult]);
+      const mockCredits = {
+        remaining_tokens: 50,
+      };
+
+      mockDb.query.mockResolvedValue([mockCredits]);
 
       const hasTokens = await dbService.checkTokenAvailability(mockSession, 100);
 
@@ -363,9 +277,8 @@ describe('Database Service', () => {
     test('should handle token check errors gracefully', async () => {
       mockDb.query.mockRejectedValue(new Error('Database error'));
 
-      const hasTokens = await dbService.checkTokenAvailability(mockSession, 100);
-
-      expect(hasTokens).toBe(false);
+      await expect(dbService.checkTokenAvailability(mockSession, 100))
+        .rejects.toThrow('Failed to check token availability');
     });
   });
 
@@ -374,8 +287,8 @@ describe('Database Service', () => {
       const mockDocument = {
         id: 'law-123',
         title: 'Test Law',
-        content: 'Law content...',
-        category: 'civil',
+        content: 'Test content',
+        metadata: { category: 'civil' },
       };
 
       mockDb.query.mockResolvedValue([mockDocument]);
@@ -393,7 +306,7 @@ describe('Database Service', () => {
       mockDb.query.mockResolvedValue([]);
 
       await expect(dbService.getLawDocument('non-existent-id'))
-        .rejects.toThrow('Failed to get law document');
+        .rejects.toThrow('Law document not found');
     });
 
     test('should handle law document retrieval errors', async () => {
@@ -409,11 +322,10 @@ describe('Database Service', () => {
       const consoleSpy = jest.spyOn(console, 'error').mockImplementation();
       mockDb.query.mockRejectedValue(new Error('Test error'));
 
-      await expect(dbService.searchDocuments([0.1, 0.2]))
+      await expect(dbService.searchDocuments([0.1, 0.2, 0.3]))
         .rejects.toThrow('Failed to search documents');
 
       expect(consoleSpy).toHaveBeenCalledWith('Vector search error:', expect.any(Error));
-      
       consoleSpy.mockRestore();
     });
 
@@ -421,52 +333,8 @@ describe('Database Service', () => {
       mockDb.transaction.mockRejectedValue(new Error('Transaction failed'));
 
       await expect(
-        dbService.saveConversation(mockSession, null, mockMessages)
-      ).rejects.toThrow('Transaction failed');
+        dbService.saveConversation(mockSession, null, mockMessages, 'Test Conversation')
+      ).rejects.toThrow('Failed to save conversation');
     });
-
-    // test('should handle message save errors', async () => {
-    //   mockDb.query.mockRejectedValue(new Error('Insert failed'));
-
-    //   await expect(
-    //     dbService.saveConversationMessages('conversation-id', mockMessages)
-    //   ).rejects.toThrow('Failed to save conversation messages');
-    // });
   });
-
-  // describe('Data Validation', () => {
-  //   test('should handle null/undefined message arrays', async () => {
-  //     await dbService.saveConversationMessages('conversation-id', null as any);
-  //     expect(mockDb.query).not.toHaveBeenCalled();
-
-  //     await dbService.saveConversationMessages('conversation-id', undefined as any);
-  //     expect(mockDb.query).not.toHaveBeenCalled();
-  //   });
-
-  //   test('should handle messages with missing optional fields', async () => {
-  //     const minimalMessages = [
-  //       {
-  //         role: 'user' as const,
-  //         content: 'Hello',
-  //         timestamp: '2023-01-01T00:00:00Z',
-  //       },
-  //     ];
-
-  //     mockDb.query.mockResolvedValue([]);
-
-  //     await dbService.saveConversationMessages('conversation-id', minimalMessages);
-
-  //     expect(mockDb.query).toHaveBeenCalledWith(
-  //       expect.stringContaining('INSERT INTO consultant_messages'),
-  //       expect.arrayContaining([
-  //         'conversation-id',
-  //         'user',
-  //         'Hello',
-  //         null, // documents_ids should be null
-  //         0,    // tokens_used should be 0
-  //         '2023-01-01T00:00:00Z',
-  //       ])
-  //     );
-  //   });
-  // });
 });

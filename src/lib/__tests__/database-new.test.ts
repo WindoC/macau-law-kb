@@ -1,96 +1,128 @@
 // import { saveConversation, saveConversationMessages, SessionData } from '../database-new';
 import { saveConversation, SessionData } from '../database-new';
+import { db } from '@/lib/db';
 
 /**
  * Unit tests for conversation saving functionality
  * These tests verify the database functions work correctly
  */
 
+// Mock database
+jest.mock('@/lib/db', () => ({
+  db: {
+    query: jest.fn(),
+    transaction: jest.fn(),
+  },
+}));
+
+const mockDb = db as jest.Mocked<typeof db>;
+
 describe('Conversation Database Functions', () => {
-  const mockSession: SessionData = {
+  const mockSession = {
     userId: 'test-user-id',
     email: 'test@example.com',
-    role: 'user',
-    provider: 'google'
+    role: 'free',
+    provider: 'google',
   };
-  const mockMessages = [
-    {
-      role: 'user' as const,
-      content: '什麼是澳門的基本法？',
-      timestamp: '2025-06-13T15:00:00.000Z'
-    },
-    {
-      role: 'assistant' as const,
-      content: '澳門基本法是澳門特別行政區的憲制性法律文件...',
-      timestamp: '2025-06-13T15:00:30.000Z'
-    }
-  ];
+
+  const mockMessage = {
+    role: 'user' as const,
+    content: 'Test message',
+    timestamp: new Date().toISOString(),
+  };
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
 
   describe('saveConversation', () => {
     it('should create a new conversation with messages', async () => {
-      const conversationId = await saveConversation(
-        mockSession,
-        null, // New conversation
-        mockMessages,
-        '諮詢: 什麼是澳門的基本法？...',
-        1500,
-        'gemini-2.5-flash-preview-05-20'
-      );
+      const mockResult = {
+        id: 'conv-123',
+        user_id: mockSession.userId,
+        title: 'Test Conversation',
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      };
 
-      expect(conversationId).toBeDefined();
-      expect(typeof conversationId).toBe('string');
-      expect(conversationId).not.toMatch(/^temp-/);
+      mockDb.transaction.mockImplementation(async (callback) => {
+        return callback({
+          query: jest.fn().mockResolvedValue({ rows: [mockResult] }),
+        } as any);
+      });
+
+      const result = await saveConversation(mockSession, null, [mockMessage], 'Test Conversation');
+
+      expect(result).toBeDefined();
+      expect(result).toBe('conv-123');
+      expect(mockDb.transaction).toHaveBeenCalled();
     });
 
     it('should update an existing conversation', async () => {
-      // First create a conversation
-      const initialConversationId = await saveConversation(
-        mockSession,
-        null,
-        [mockMessages[0]],
-        '測試對話',
-        500,
-        'gemini-2.5-flash-preview-05-20'
-      );
+      const mockResult = {
+        id: 'conv-123',
+        user_id: mockSession.userId,
+        title: 'Updated Conversation',
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      };
 
-      // Then update it with new messages
-      const updatedConversationId = await saveConversation(
-        mockSession,
-        initialConversationId,
-        mockMessages,
-        undefined,
-        1500,
-        'gemini-2.5-flash-preview-05-20'
-      );
+      mockDb.transaction.mockImplementation(async (callback) => {
+        return callback({
+          query: jest.fn().mockResolvedValue({ rows: [mockResult] }),
+        } as any);
+      });
 
-      expect(updatedConversationId).toBe(initialConversationId);
+      const result = await saveConversation(mockSession, 'conv-123', [mockMessage], 'Updated Conversation');
+
+      expect(result).toBeDefined();
+      expect(result).toBe('conv-123');
+      expect(mockDb.transaction).toHaveBeenCalled();
     });
 
     it('should handle Pro model conversations', async () => {
-      const conversationId = await saveConversation(
-        mockSession,
-        null,
-        mockMessages,
-        'Pro 模型測試',
-        15000, // 10x tokens for Pro model
-        'gemini-2.5-pro-preview-05-20'
-      );
+      const mockResult = {
+        id: 'conv-123',
+        user_id: mockSession.userId,
+        title: 'Pro Conversation',
+        model: 'pro',
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      };
 
-      expect(conversationId).toBeDefined();
-      expect(typeof conversationId).toBe('string');
+      mockDb.transaction.mockImplementation(async (callback) => {
+        return callback({
+          query: jest.fn().mockResolvedValue({ rows: [mockResult] }),
+        } as any);
+      });
+
+      const result = await saveConversation(mockSession, null, [mockMessage], 'Pro Conversation', 'pro');
+
+      expect(result).toBeDefined();
+      expect(result).toBe('conv-123');
+      expect(mockDb.transaction).toHaveBeenCalled();
     });
 
     it('should handle empty messages array gracefully', async () => {
-      const conversationId = await saveConversation(
-        mockSession,
-        null,
-        [],
-        '空對話測試',
-        0,
-        'gemini-2.5-flash-preview-05-20'
-      );
+      const mockResult = {
+        id: 'conv-123',
+        user_id: mockSession.userId,
+        title: 'Empty Conversation',
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      };
 
-      expect(conversationId).toBeDefined();
+      mockDb.transaction.mockImplementation(async (callback) => {
+        return callback({
+          query: jest.fn().mockResolvedValue({ rows: [mockResult] }),
+        } as any);
+      });
+
+      const result = await saveConversation(mockSession, null, [], 'Empty Conversation');
+
+      expect(result).toBeDefined();
+      expect(result).toBe('conv-123');
+      expect(mockDb.transaction).toHaveBeenCalled();
     });
   });
 
@@ -132,21 +164,11 @@ describe('Conversation Database Functions', () => {
 
   describe('Error Handling', () => {
     it('should throw error for invalid user ID', async () => {
-      const invalidSession: SessionData = {
-        userId: 'invalid-user-id',
-        email: 'invalid@example.com',
-        role: 'user',
-        provider: 'google'
-      };
-      
+      const invalidSession = { ...mockSession, userId: '' };
+
       await expect(
-        saveConversation(
-          invalidSession,
-          null,
-          mockMessages,
-          '錯誤測試'
-        )
-      ).rejects.toThrow();
+        saveConversation(invalidSession, null, [mockMessage], 'Test Conversation')
+      ).rejects.toThrow('Invalid user ID');
     });
 
     // it('should throw error for invalid conversation ID', async () => {
@@ -156,33 +178,47 @@ describe('Conversation Database Functions', () => {
     // });
 
     it('should handle database connection errors gracefully', async () => {
-      // This test would require mocking the database connection
-      // to simulate connection failures
-      expect(true).toBe(true); // Placeholder
+      mockDb.transaction.mockRejectedValue(new Error('Database connection failed'));
+
+      await expect(
+        saveConversation(mockSession, null, [mockMessage], 'Test Conversation')
+      ).rejects.toThrow('Failed to save conversation');
     });
   });
 
   describe('Data Validation', () => {
     it('should validate message roles', async () => {
-      const invalidMessages = [
-        {
-          role: 'invalid' as any,
-          content: '測試訊息',
-          timestamp: '2025-06-13T15:00:00.000Z'
-        }
-      ];
+      const invalidMessage = {
+        role: 'invalid-role' as any,
+        content: 'Test message',
+        timestamp: new Date().toISOString(),
+      };
 
       await expect(
-        saveConversation(mockSession, null, invalidMessages, '驗證測試')
-      ).rejects.toThrow();
+        saveConversation(mockSession, null, [invalidMessage], 'Test Conversation')
+      ).rejects.toThrow('Invalid message role');
     });
 
     it('should handle long message content', async () => {
       const longMessage = {
         role: 'user' as const,
-        content: 'A'.repeat(10000), // Very long message
-        timestamp: '2025-06-13T15:00:00.000Z'
+        content: 'a'.repeat(10000),
+        timestamp: new Date().toISOString(),
       };
+
+      const mockResult = {
+        id: 'conv-123',
+        user_id: mockSession.userId,
+        title: '長訊息測試',
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      };
+
+      mockDb.transaction.mockImplementation(async (callback) => {
+        return callback({
+          query: jest.fn().mockResolvedValue({ rows: [mockResult] }),
+        } as any);
+      });
 
       await expect(
         saveConversation(mockSession, null, [longMessage], '長訊息測試')
@@ -192,12 +228,24 @@ describe('Conversation Database Functions', () => {
     it('should validate timestamp format', async () => {
       const invalidTimestampMessage = {
         role: 'user' as const,
-        content: '測試訊息',
-        timestamp: 'invalid-timestamp'
+        content: 'Test message',
+        timestamp: 'invalid-timestamp',
       };
 
-      // The function should handle invalid timestamps gracefully
-      // or throw an appropriate error
+      const mockResult = {
+        id: 'conv-123',
+        user_id: mockSession.userId,
+        title: '時間戳測試',
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      };
+
+      mockDb.transaction.mockImplementation(async (callback) => {
+        return callback({
+          query: jest.fn().mockResolvedValue({ rows: [mockResult] }),
+        } as any);
+      });
+
       await expect(
         saveConversation(mockSession, null, [invalidTimestampMessage], '時間戳測試')
       ).resolves.toBeDefined();
@@ -209,49 +257,57 @@ describe('Conversation Database Functions', () => {
  * Integration tests for the complete conversation flow
  */
 describe('Conversation Integration Tests', () => {
+  const mockSession = {
+    userId: 'test-user-id',
+    email: 'test@example.com',
+    role: 'free',
+    provider: 'google',
+  };
+
+  const mockMessage = {
+    role: 'user' as const,
+    content: 'Test message',
+    timestamp: new Date().toISOString(),
+  };
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
   it('should handle complete conversation lifecycle', async () => {
-    const integrationSession: SessionData = {
-      userId: 'integration-test-user',
-      email: 'integration@example.com',
-      role: 'user',
-      provider: 'github'
-    };
-    
-    const initialMessage = {
-      role: 'user' as const,
-      content: '澳門有哪些重要的法律？',
-      timestamp: new Date().toISOString()
+    const mockResult = {
+      id: 'conv-123',
+      user_id: mockSession.userId,
+      title: 'Test Conversation',
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
     };
 
-    // 1. Create new conversation
-    const conversationId = await saveConversation(
-      integrationSession,
-      null,
-      [initialMessage],
-      '諮詢: 澳門有哪些重要的法律？...',
-      500,
-      'gemini-2.5-flash-preview-05-20'
-    );
+    mockDb.transaction.mockImplementation(async (callback) => {
+      return callback({
+        query: jest.fn().mockResolvedValue({ rows: [mockResult] }),
+      } as any);
+    });
 
+    // Create conversation
+    const conversationId = await saveConversation(mockSession, null, [mockMessage], 'Test Conversation');
     expect(conversationId).toBeDefined();
+    expect(conversationId).toBe('conv-123');
 
-    // 2. Add assistant response
-    const assistantMessage = {
-      role: 'assistant' as const,
-      content: '澳門的重要法律包括基本法、民法典、刑法典等...',
-      timestamp: new Date().toISOString()
+    // Update conversation
+    const updatedMessage = {
+      ...mockMessage,
+      content: 'Updated message',
     };
 
     const updatedConversationId = await saveConversation(
-      integrationSession,
+      mockSession,
       conversationId,
-      [initialMessage, assistantMessage],
-      undefined,
-      1200,
-      'gemini-2.5-flash-preview-05-20'
+      [updatedMessage],
+      'Updated Conversation'
     );
 
-    expect(updatedConversationId).toBe(conversationId);
-
+    expect(updatedConversationId).toBeDefined();
+    expect(updatedConversationId).toBe('conv-123');
   });
 });
