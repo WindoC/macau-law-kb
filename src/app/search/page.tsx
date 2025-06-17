@@ -17,6 +17,7 @@ export default function SearchPage() {
   const [warning, setWarning] = useState<string | null>(null);
   const [fragmentIdentifiers, setFragmentIdentifiers] = useState<{[key: string]: string}>({});
   const [expandedResults, setExpandedResults] = useState<{[key: string]: boolean}>({});
+  const [remainingTokens, setRemainingTokens] = useState<number | undefined>(undefined);
 
   useEffect(() => {
     const extractFragmentIdentifiers = () => {
@@ -73,6 +74,11 @@ export default function SearchPage() {
       const searchResults = data.results || [];
       setResults(searchResults);
       
+      // 更新剩余代币
+      if (data.remaining_tokens !== undefined) {
+        setRemainingTokens(data.remaining_tokens);
+      }
+      
       if (searchResults.length === 0) {
         setWarning('未找到與您查詢相關的結果。請嘗試重新表述您的搜索或使用不同的關鍵詞。');
       }
@@ -100,7 +106,7 @@ export default function SearchPage() {
 
   return (
     <>
-      <Navigation />
+      <Navigation remainingTokens={remainingTokens} />
       <div className="container mt-4">
         <div className="row">
           <div className="col-12">

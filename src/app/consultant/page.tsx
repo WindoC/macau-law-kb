@@ -26,6 +26,7 @@ export default function ConsultantPage() {
   const [currentStep, setCurrentStep] = useState('');
   const [streamingResponse, setStreamingResponse] = useState('');
   const chatMessagesRef = useRef<HTMLDivElement>(null);
+  const [remainingTokens, setRemainingTokens] = useState<number | undefined>(undefined);
 
   useEffect(() => {
     if (chatMessagesRef.current) {
@@ -127,6 +128,9 @@ export default function ConsultantPage() {
                     if (data.content.conversationId && !conversationId) {
                       setConversationId(data.content.conversationId);
                     }
+                    if (data.content.remaining_tokens !== undefined) {
+                      setRemainingTokens(data.content.remaining_tokens);
+                    }
                     break;
                   case 'error':
                     setError(data.content);
@@ -189,7 +193,7 @@ export default function ConsultantPage() {
 
   return (
     <div className="d-flex flex-column" style={{height: '100vh'}}>
-      <Navigation />
+      <Navigation remainingTokens={remainingTokens} />
       <div className="container mt-4 flex-grow-1 d-flex flex-column">
         <div className="row flex-grow-1">
           <div className="col-12 d-flex flex-column">
