@@ -20,10 +20,12 @@ export interface AuthenticatedUser {
   provider: string;
   created_at: string;
   updated_at: string;
-  // Credits info from user_credits table
-  total_tokens?: number;
-  used_tokens?: number;
-  remaining_tokens?: number;
+  credits: {
+    total_tokens: number;
+    used_tokens: number;
+    remaining_tokens: number;
+    last_reset: string;
+  }
 }
 
 /**
@@ -68,7 +70,7 @@ export function hasCredits(user: AuthenticatedUser, requiredCredits: number): bo
   // Admin users have unlimited tokens
   if (user.role === 'admin') return true;
   
-  return (user.remaining_tokens || 0) >= requiredCredits;
+  return (user.credits.remaining_tokens || 0) >= requiredCredits;
 }
 
 /**
