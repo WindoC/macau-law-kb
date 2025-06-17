@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation';
+import { getCurrentUser, logout } from '@/lib/auth-client';
 
 interface User {
   id: string
@@ -29,7 +30,12 @@ export default function Navigation({ remainingTokens }: NavigationProps) {
   const router = useRouter();
 
   useEffect(() => {
-    checkAuthStatus()
+    const fetchUser = async () => {
+      const currentUser = await getCurrentUser();
+      setUser(currentUser);
+      setLoading(false);
+    };
+    fetchUser();
   }, [])
 
   // 当remainingTokens更新时更新user状态
@@ -45,43 +51,15 @@ export default function Navigation({ remainingTokens }: NavigationProps) {
     }
   }, [remainingTokens]);
 
-  const checkAuthStatus = async () => {
-    try {
-      const response = await fetch('/api/profile', {
-        credentials: 'include'
-      })
-      
-      if (response.ok) {
-        const userData = await response.json()
-        setUser(userData)
-      } else {
-        setUser(null)
-      }
-    } catch (error) {
-      console.error('Auth check error:', error)
-      setUser(null)
-    } finally {
-      setLoading(false)
-    }
-  }
-
   const handleLogout = async () => {
-    try {
-      const response = await fetch('/api/auth/logout', {
-        method: 'POST',
-        credentials: 'include'
-      })
-      
-      if (response.ok) {
-        setUser(null)
-        router.push('/')
-      } else {
-        console.error('Logout failed')
-        alert('登出失敗，請稍後再試')
-      }
-    } catch (error) {
-      console.error('Logout error:', error)
+    const success = await logout();
+    if (success) {
+      setUser(null)
+      router.push('/auth/login')
+    } else {
+      console.error('Logout failed')
       alert('登出失敗，請稍後再試')
+      router.push('/auth/error')
     }
   }
 
