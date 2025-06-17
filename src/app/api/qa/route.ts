@@ -108,9 +108,17 @@ export async function POST(request: NextRequest) {
             (keywordsEmbeddingResult.tokenCount ?? 0) +
             (answerResult.tokenCount ?? 0) ;
 
-          await updateTokenUsage(session, actualTokens);
+          const remaining_tokens = await updateTokenUsage(session, 'qa', actualTokens);
           const documentIds = searchResults.map((result) => result.id);
           await saveQAHistory(session, question, answer, documentIds, actualTokens);
+
+          send({
+            type: 'completion',
+            content: {
+              tokens_used: actualTokens,
+              remaining_tokens: remaining_tokens || 0
+            }
+          });
 
         } catch (e) {
           console.error('Streaming error:', e);
