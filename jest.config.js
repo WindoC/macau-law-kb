@@ -14,12 +14,13 @@ const createJestConfig = nextJest({
 const customJestConfig = {
   // Setup files to run before each test
   setupFilesAfterEnv: ['<rootDir>/jest.setup.js'],
+  setupFiles: ['<rootDir>/jest.env-setup.js'],
   
   // Test environment for React components
   testEnvironment: 'jest-environment-jsdom',
   
   // Module name mapping for path aliases
-  moduleNameMapping: {
+  moduleNameMapper: {
     '^@/(.*)$': '<rootDir>/src/$1',
     '^@/tests/(.*)$': '<rootDir>/tests/$1',
   },

@@ -44,12 +44,12 @@ describe('Profile API Routes', () => {
     avatar_url: 'https://example.com/avatar.jpg',
     role: 'free',
     provider: 'google',
-    created_at: new Date('2023-01-01'),
-    updated_at: new Date('2023-01-02'),
+    created_at: '2023-01-01T00:00:00.000Z',
+    updated_at: '2023-01-02T00:00:00.000Z',
     total_tokens: 1000,
     used_tokens: 250,
     remaining_tokens: 750,
-    last_reset: new Date('2023-01-01'),
+    last_reset: '2023-01-01T00:00:00.000Z',
   };
 
   beforeEach(() => {
@@ -147,8 +147,8 @@ describe('Profile API Routes', () => {
         avatar_url: 'https://example.com/avatar.jpg',
         role: 'free',
         provider: 'google',
-        created_at: new Date('2023-01-01'),
-        updated_at: new Date(),
+        created_at: '2023-01-01T00:00:00.000Z',
+        updated_at: new Date().toISOString(),
       };
 
       mockSessionManager.requireSession.mockResolvedValue(mockSession);

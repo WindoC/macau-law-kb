@@ -1,9 +1,17 @@
+require('dotenv').config({ path: '.env.test' });
+
 /**
  * Jest Setup File for Macau Law Knowledge Base
  * Configures global test environment and imports
  */
 
 import '@testing-library/jest-dom';
+import { db } from './src/lib/db';
+
+// Add TextEncoder and TextDecoder polyfills
+const { TextEncoder, TextDecoder } = require('util');
+global.TextEncoder = TextEncoder;
+global.TextDecoder = TextDecoder;
 
 // Mock Next.js router
 jest.mock('next/router', () => ({
@@ -87,6 +95,25 @@ process.env.NEXTAUTH_SECRET = 'test-nextauth-secret';
 
 // Global test timeout
 jest.setTimeout(30000);
+
+// Database health check before tests
+beforeAll(async () => {
+  try {
+    const isHealthy = await db.healthCheck();
+    if (!isHealthy) {
+      console.error('Database health check failed');
+      process.exit(1);
+    }
+  } catch (error) {
+    console.error('Database connection error:', error);
+    process.exit(1);
+  }
+});
+
+// Close database connection after tests
+afterAll(async () => {
+  await db.close();
+});
 
 // Suppress console errors during tests unless explicitly needed
 const originalError = console.error;
