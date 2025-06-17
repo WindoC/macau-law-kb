@@ -1,10 +1,11 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Container, Row, Col, Card, Button, Alert } from 'react-bootstrap';
+import { Container, Row, Col, Card, Button, Alert, Modal } from 'react-bootstrap';
 import { useAuth } from '@/contexts/AuthContext';
 import CaptchaWidget from '@/components/CaptchaWidget';
 import { validateCaptchaToken, CAPTCHA_ERRORS } from '@/lib/captcha';
+import LegalInformationSection from '@/components/LegalInformationSection';
 
 /**
  * Login Form Component
@@ -15,6 +16,7 @@ export function LoginForm() {
   const [captchaToken, setCaptchaToken] = useState<string | null>(null);
   const [captchaError, setCaptchaError] = useState<string | null>(null);
   const [loginLoading, setLoginLoading] = useState(false);
+  const [showLegalInfo, setShowLegalInfo] = useState(false);
 
   /**
    * Handle OAuth login with provider
@@ -152,13 +154,32 @@ export function LoginForm() {
                 <div className="text-center mt-4">
                   <small className="text-muted">
                     登入即表示您同意我們的
-                    <a href="/terms" className="text-decoration-none"> 服務條款 </a>
-                    和
-                    <a href="/privacy" className="text-decoration-none"> 隱私政策</a>
+                    <Button 
+                      variant="link" 
+                      className="text-decoration-none p-0 m-0 border-0" 
+                      onClick={() => setShowLegalInfo(true)}
+                    >
+                      服務條款和隱私政策
+                    </Button>
                   </small>
                 </div>
               </Card.Body>
             </Card>
+
+            {/* Legal Information Modal */}
+            <Modal 
+              show={showLegalInfo} 
+              onHide={() => setShowLegalInfo(false)}
+              size="lg"
+              centered
+            >
+              <Modal.Header closeButton>
+                <Modal.Title>條款與聲明</Modal.Title>
+              </Modal.Header>
+              <Modal.Body>
+                <LegalInformationSection />
+              </Modal.Body>
+            </Modal>
 
             {/* Features Preview */}
             <Card className="mt-4 border-0 shadow-sm">
