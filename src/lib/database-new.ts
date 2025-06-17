@@ -311,10 +311,13 @@ export async function getUserProfile(session: SessionData): Promise<any> {
  */
 export async function updateTokenUsage(
   session: SessionData,
+  feature: 'search' | 'qa' | 'consultant',
   tokensUsed: number
-): Promise<void> {
-  try {
-    const [result] = await db.query<{ remaining_tokens: number }>(
+): Promise<number> {
+  return db.transaction(async (client) => {
+    let remaining_tokens: number;
+  
+    const updateResult = await client.query<{ remaining_tokens: number }>(
       `UPDATE user_credits 
        SET used_tokens = used_tokens + $1,
            remaining_tokens = remaining_tokens - $1,
@@ -323,18 +326,24 @@ export async function updateTokenUsage(
        RETURNING remaining_tokens`,
       [tokensUsed, session.userId]
     );
-    
-    if (!result) {
+
+    if (!updateResult.rows.length) {
       throw new Error('User credits not found');
     }
+
+    remaining_tokens = updateResult.rows[0]?.remaining_tokens;
+
+    console.log(`User ${session.userId} used ${tokensUsed} tokens for ${feature}. Remaining tokens: ${remaining_tokens}`);
+    const insertResult = await client.query<{ id: string }>(
+      `INSERT INTO token_usage
+       (user_id, feature_type, tokens_used, created_at)
+       VALUES ($1, $2, $3, NOW())
+       RETURNING id`,
+      [session.userId, feature, tokensUsed]
+    );
     
-    if (result.remaining_tokens < 0) {
-      throw new Error('Insufficient tokens');
-    }
-  } catch (error) {
-    console.error('Update token usage error:', error);
-    throw new Error('Failed to update token usage');
-  }
+    return remaining_tokens;
+  });
 }
 
 /**
