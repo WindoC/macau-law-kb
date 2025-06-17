@@ -10,6 +10,9 @@ interface User {
   name?: string
   avatar_url?: string
   provider: string
+  credits: {
+    remaining_tokens: number
+  }
 }
 
 /**
@@ -141,9 +144,9 @@ export default function Navigation() {
                 data-bs-toggle="dropdown"
               >
                 <i className="fas fa-user me-1"></i>
-                {user.name || user.email}
+                {user.name || user.email} ( 剩餘代幣: {user.credits.remaining_tokens.toLocaleString()} )
               </a>
-              <ul className="dropdown-menu">
+              <ul className="dropdown-menu dropdown-menu-end">
                 <li><a className="dropdown-item" href="/profile">
                   <i className="fas fa-user-cog me-2"></i>個人資料
                 </a></li>
