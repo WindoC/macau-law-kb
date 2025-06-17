@@ -1,19 +1,20 @@
 'use client';
 
-import React from 'react';
+import React, { Suspense, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { Container, Row, Col, Card, Button, Alert } from 'react-bootstrap';
+import { Container, Row, Col, Card, Button, Alert, Modal } from 'react-bootstrap';
 import Link from 'next/link';
 
 /**
  * Authentication Error Page
  * Displays authentication errors with appropriate messages and actions
  */
-export default function AuthErrorPage() {
+function AuthErrorContent() {
   const searchParams = useSearchParams();
   const error = searchParams.get('error');
   const description = searchParams.get('description');
   const provider = searchParams.get('provider');
+  const [showContactModal, setShowContactModal] = useState(false);
 
   /**
    * Get error message and details based on error code
@@ -170,7 +171,7 @@ export default function AuthErrorPage() {
                     <Button
                       variant="link"
                       size="sm"
-                      href="/contact"
+                      onClick={() => setShowContactModal(true)}
                       className="text-decoration-none"
                     >
                       <i className="fas fa-envelope me-1"></i>
@@ -178,11 +179,53 @@ export default function AuthErrorPage() {
                     </Button>
                   </div>
                 </div>
+
+                {/* Contact Modal */}
+                <Modal show={showContactModal} onHide={() => setShowContactModal(false)} centered>
+                  <Modal.Header closeButton>
+                    <Modal.Title>聯絡我們</Modal.Title>
+                  </Modal.Header>
+                  <Modal.Body>
+                    <p>請通過以下電子郵件地址聯繫我們：</p>
+                    <p className="text-primary">windo.ac@gmail.com</p>
+                  </Modal.Body>
+                  <Modal.Footer>
+                    <Button variant="secondary" onClick={() => setShowContactModal(false)}>
+                      關閉
+                    </Button>
+                  </Modal.Footer>
+                </Modal>
               </Card.Body>
             </Card>
           </Col>
         </Row>
       </Container>
     </Container>
+  );
+}
+
+// 主页面组件
+export default function AuthErrorPage() {
+  return (
+    <Suspense fallback={
+      <Container fluid className="min-vh-100 bg-light d-flex align-items-center">
+        <Container>
+          <Row className="justify-content-center">
+            <Col md={8} lg={6} xl={5}>
+              <Card className="shadow-lg border-0">
+                <Card.Body className="p-4 text-center">
+                  <div className="spinner-border text-primary" role="status">
+                    <span className="visually-hidden">載入中...</span>
+                  </div>
+                  <p className="mt-3">正在載入錯誤信息...</p>
+                </Card.Body>
+              </Card>
+            </Col>
+          </Row>
+        </Container>
+      </Container>
+    }>
+      <AuthErrorContent />
+    </Suspense>
   );
 }
