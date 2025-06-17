@@ -97,7 +97,7 @@ export async function POST(request: NextRequest) {
       const actualTokens = (keywordsResult.tokenCount ?? 0) + (keywordsEmbeddingResult.tokenCount ?? 0);
       
       // Step 5: Update user token usage
-      await updateTokenUsage(session, actualTokens);
+      const remaining_tokens = await updateTokenUsage(session, 'search', actualTokens);
       
       // Step 6: Save search history
       const documentIds = searchResults.map(result => result.id);
@@ -116,7 +116,7 @@ export async function POST(request: NextRequest) {
           // title: result.metadata?.law_id + " - " + result.metadata?.title || `文件 #${result.id}`
         })),
         tokens_used: actualTokens,
-        remaining_tokens: (user.remaining_tokens || 0) - actualTokens
+        remaining_tokens: remaining_tokens || 0
       };
 
       return createSuccessResponse(response);

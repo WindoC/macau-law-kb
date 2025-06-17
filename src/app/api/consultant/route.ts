@@ -254,13 +254,13 @@ export async function POST(request: NextRequest) {
           });
 
           // Update token usage and save conversation
-          await updateTokenUsage(session, finalTokens);
+          const remaining_tokens = await updateTokenUsage(session, 'consultant', finalTokens);
 
           // Save conversation and messages
           let savedConversationId = conversationId;
 
           try {
-            const modelName = useProModel ? 'gemini-2.5-pro-preview-05-20' : 'gemini-2.5-flash-preview-05-20';
+            const modelName = useProModel ? 'pro' : 'flash';
             const conversationTitle = fullConversationHistory.length === 2 ? `諮詢: ${message.substring(0, 50)}...` : undefined;
             
             savedConversationId = await saveConversation(
@@ -281,8 +281,8 @@ export async function POST(request: NextRequest) {
             type: 'completion',
             content: {
               conversationId: savedConversationId,
-              tokensUsed: finalTokens,
-              remainingTokens: (user.remaining_tokens || 0) - finalTokens
+              tokens_used: finalTokens,
+              remaining_tokens: remaining_tokens || 0
             }
           });
 
