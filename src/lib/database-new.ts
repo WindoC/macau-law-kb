@@ -36,7 +36,7 @@ export async function searchDocuments(
   try {
     const results = await db.query<DocumentResult>(
       'SELECT * FROM match_documents($1, $2, $3)',
-      [embedding, matchCount, filter]
+      [`[${embedding.join(',')}]`, matchCount, filter]
     );
     
     return results;
@@ -106,48 +106,48 @@ export async function saveQAHistory(
   }
 }
 
-/**
- * Save conversation messages to the database
- * @param conversationId - Conversation ID to link messages to
- * @param messages - Array of messages to save
- * @returns Promise<void>
- */
-export async function saveConversationMessages(
-  conversationId: string,
-  messages: Array<{ 
-    role: 'user' | 'assistant'; 
-    content: string; 
-    documents_ids?: number[]; 
-    tokens_used?: number; 
-    timestamp: string 
-  }>
-): Promise<void> {
-  try {
-    if (!messages || messages.length === 0) return;
+// /**
+//  * Save conversation messages to the database
+//  * @param conversationId - Conversation ID to link messages to
+//  * @param messages - Array of messages to save
+//  * @returns Promise<void>
+//  */
+// export async function saveConversationMessages(
+//   conversationId: string,
+//   messages: Array<{ 
+//     role: 'user' | 'assistant'; 
+//     content: string; 
+//     documents_ids?: number[]; 
+//     tokens_used?: number; 
+//     timestamp: string 
+//   }>
+// ): Promise<void> {
+//   try {
+//     if (!messages || messages.length === 0) return;
     
-    const messagesToInsert = messages.slice(-2).map((message) => [
-      conversationId,
-      message.role,
-      message.content,
-      message.documents_ids || null,
-      message.tokens_used || 0,
-      message.timestamp
-    ]);
+//     const messagesToInsert = messages.slice(-2).map((message) => [
+//       conversationId,
+//       message.role,
+//       message.content,
+//       message.documents_ids || null,
+//       message.tokens_used || 0,
+//       message.timestamp
+//     ]);
     
-    const placeholders = messagesToInsert.map((_, i) => 
-      `($${i * 6 + 1}, $${i * 6 + 2}, $${i * 6 + 3}, $${i * 6 + 4}, $${i * 6 + 5}, $${i * 6 + 6})`
-    ).join(', ');
+//     const placeholders = messagesToInsert.map((_, i) => 
+//       `($${i * 6 + 1}, $${i * 6 + 2}, $${i * 6 + 3}, $${i * 6 + 4}, $${i * 6 + 5}, $${i * 6 + 6})`
+//     ).join(', ');
     
-    await db.query(
-      `INSERT INTO consultant_messages (conversation_id, role, content, document_ids, tokens_used, created_at)
-       VALUES ${placeholders}`,
-      messagesToInsert.flat()
-    );
-  } catch (error) {
-    console.error('Save conversation messages error:', error);
-    throw new Error('Failed to save conversation messages');
-  }
-}
+//     await db.query(
+//       `INSERT INTO consultant_messages (conversation_id, role, content, document_ids, tokens_used, created_at)
+//        VALUES ${placeholders}`,
+//       messagesToInsert.flat()
+//     );
+//   } catch (error) {
+//     console.error('Save conversation messages error:', error);
+//     throw new Error('Failed to save conversation messages');
+//   }
+// }
 
 /**
  * Save or update conversation with messages
@@ -209,7 +209,24 @@ export async function saveConversation(
     
     // Save messages
     if (messages && messages.length > 0) {
-      await saveConversationMessages(finalConversationId, messages);
+      const messagesToInsert = messages.slice(-2).map((message) => [
+        finalConversationId,
+        message.role,
+        message.content,
+        message.documents_ids || null,
+        message.tokens_used || 0,
+        message.timestamp
+      ]);
+      
+      const placeholders = messagesToInsert.map((_, i) => 
+        `($${i * 6 + 1}, $${i * 6 + 2}, $${i * 6 + 3}, $${i * 6 + 4}, $${i * 6 + 5}, $${i * 6 + 6})`
+      ).join(', ');
+      
+      await client.query(
+        `INSERT INTO consultant_messages (conversation_id, role, content, document_ids, tokens_used, created_at)
+        VALUES ${placeholders}`,
+        messagesToInsert.flat()
+      );
     }
     
     return finalConversationId;
@@ -223,7 +240,7 @@ export async function saveConversation(
  */
 export async function getUserProfile(session: SessionData): Promise<any> {
   try {
-    console.log('Getting user profile for:', session.userId);
+    // console.log('Getting user profile for:', session.userId);
     
     // Try database first
     const users = await db.query(
@@ -236,51 +253,51 @@ export async function getUserProfile(session: SessionData): Promise<any> {
     );
     
     if (users.length > 0) {
-      console.log('Successfully retrieved user profile from database:', users[0].email);
+      // console.log('Successfully retrieved user profile from database:', users[0].email);
       return users[0];
     }
     
-    // If user not found in database, check if it's a temporary user
-    if (session.userId.startsWith('temp-')) {
-      console.log('User not in database, returning temporary profile for:', session.userId);
-      return {
-        id: session.userId,
-        email: session.email,
-        name: 'Temporary User',
-        avatar_url: null,
-        role: session.role,
-        provider: session.provider,
-        created_at: new Date(),
-        updated_at: new Date(),
-        total_tokens: 100000,
-        used_tokens: 0,
-        remaining_tokens: 100000,
-        last_reset: new Date()
-      };
-    }
+    // // If user not found in database, check if it's a temporary user
+    // if (session.userId.startsWith('temp-')) {
+    //   console.log('User not in database, returning temporary profile for:', session.userId);
+    //   return {
+    //     id: session.userId,
+    //     email: session.email,
+    //     name: 'Temporary User',
+    //     avatar_url: null,
+    //     role: session.role,
+    //     provider: session.provider,
+    //     created_at: new Date(),
+    //     updated_at: new Date(),
+    //     total_tokens: 100000,
+    //     used_tokens: 0,
+    //     remaining_tokens: 100000,
+    //     last_reset: new Date()
+    //   };
+    // }
     
     throw new Error('User not found');
   } catch (error) {
     console.error('Get user profile error:', error);
     
-    // If it's a temporary user and database failed, return mock profile
-    if (session.userId.startsWith('temp-')) {
-      console.log('Database error for temp user, returning mock profile');
-      return {
-        id: session.userId,
-        email: session.email,
-        name: 'Temporary User',
-        avatar_url: null,
-        role: session.role,
-        provider: session.provider,
-        created_at: new Date(),
-        updated_at: new Date(),
-        total_tokens: 100000,
-        used_tokens: 0,
-        remaining_tokens: 100000,
-        last_reset: new Date()
-      };
-    }
+    // // If it's a temporary user and database failed, return mock profile
+    // if (session.userId.startsWith('temp-')) {
+    //   console.log('Database error for temp user, returning mock profile');
+    //   return {
+    //     id: session.userId,
+    //     email: session.email,
+    //     name: 'Temporary User',
+    //     avatar_url: null,
+    //     role: session.role,
+    //     provider: session.provider,
+    //     created_at: new Date(),
+    //     updated_at: new Date(),
+    //     total_tokens: 100000,
+    //     used_tokens: 0,
+    //     remaining_tokens: 100000,
+    //     last_reset: new Date()
+    //   };
+    // }
     
     throw new Error('Failed to get user profile');
   }
