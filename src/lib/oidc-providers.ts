@@ -57,7 +57,7 @@ class OIDCManager {
       this.providers.set('github', githubProvider);
       
       this.initialized = true;
-      console.log('OIDC providers initialized successfully');
+      // console.log('OIDC providers initialized successfully');
     } catch (error) {
       console.error('Failed to initialize OIDC providers:', error);
       throw error;
