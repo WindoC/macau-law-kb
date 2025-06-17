@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <!-- 天平底座 -->
+    <path d="M96 384 L416 384" stroke="#2563EB" stroke-width="32" stroke-linecap="round"/>
+    
+    <!-- 天平支柱 -->
+    <path d="M256 384 L256 192" stroke="#2563EB" stroke-width="32" stroke-linecap="round"/>
+    
+    <!-- 天平横杆 -->
+    <path d="M128 192 L384 192" stroke="#2563EB" stroke-width="32" stroke-linecap="round"/>
+    
+    <!-- 左侧秤盘 -->
+    <circle cx="128" cy="256" r="32" stroke="#2563EB" stroke-width="32" fill="none"/>
+    
+    <!-- 右侧秤盘 -->
+    <circle cx="384" cy="256" r="32" stroke="#2563EB" stroke-width="32" fill="none"/>
+    
+    <!-- 天平连接线 -->
+    <path d="M128 192 L128 256" stroke="#2563EB" stroke-width="32" stroke-linecap="round"/>
+    <path d="M384 192 L384 256" stroke="#2563EB" stroke-width="32" stroke-linecap="round"/>
+</svg> 
