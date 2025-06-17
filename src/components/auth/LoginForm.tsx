@@ -17,6 +17,7 @@ export function LoginForm() {
   const [captchaError, setCaptchaError] = useState<string | null>(null);
   const [loginLoading, setLoginLoading] = useState(false);
   const [showLegalInfo, setShowLegalInfo] = useState(false);
+  const [showContactModal, setShowContactModal] = useState(false);
 
   /**
    * Handle OAuth login with provider
@@ -162,6 +163,17 @@ export function LoginForm() {
                       服務條款和隱私政策
                     </Button>
                   </small>
+                  <div className="mt-2">
+                    <Button
+                      variant="link"
+                      size="sm"
+                      onClick={() => setShowContactModal(true)}
+                      className="text-decoration-none"
+                    >
+                      <i className="fas fa-envelope me-1"></i>
+                      聯繫客服
+                    </Button>
+                  </div>
                 </div>
               </Card.Body>
             </Card>
@@ -179,6 +191,22 @@ export function LoginForm() {
               <Modal.Body>
                 <LegalInformationSection />
               </Modal.Body>
+            </Modal>
+
+            {/* Contact Modal */}
+            <Modal show={showContactModal} onHide={() => setShowContactModal(false)} centered>
+              <Modal.Header closeButton>
+                <Modal.Title>聯絡我們</Modal.Title>
+              </Modal.Header>
+              <Modal.Body>
+                <p>請通過以下電子郵件地址聯繫我們：</p>
+                <p className="text-primary">windo.ac@gmail.com</p>
+              </Modal.Body>
+              <Modal.Footer>
+                <Button variant="secondary" onClick={() => setShowContactModal(false)}>
+                  關閉
+                </Button>
+              </Modal.Footer>
             </Modal>
 
             {/* Features Preview */}
