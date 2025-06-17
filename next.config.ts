@@ -43,10 +43,7 @@ const nextConfig: NextConfig = {
 
     return config;
   },
-  experimental: {
-    // Enable server components
-    serverComponentsExternalPackages: ['pg', 'pg-pool'],
-  },
+  serverExternalPackages: ['pg', 'pg-pool'],
 };
 
 export default nextConfig;
