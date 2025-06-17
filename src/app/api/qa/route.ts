@@ -113,7 +113,7 @@ export async function POST(request: NextRequest) {
           await saveQAHistory(session, question, answer, documentIds, actualTokens);
 
           send({
-            type: 'completion',
+            type: 'tokens',
             content: {
               tokens_used: actualTokens,
               remaining_tokens: remaining_tokens || 0

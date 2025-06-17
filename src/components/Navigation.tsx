@@ -15,11 +15,15 @@ interface User {
   }
 }
 
+interface NavigationProps {
+  remainingTokens?: number;
+}
+
 /**
  * Navigation component for authenticated users
  * Provides consistent header across all pages
  */
-export default function Navigation() {
+export default function Navigation({ remainingTokens }: NavigationProps) {
   const [user, setUser] = useState<User | null>(null)
   const [loading, setLoading] = useState(true)
   const router = useRouter();
@@ -27,6 +31,19 @@ export default function Navigation() {
   useEffect(() => {
     checkAuthStatus()
   }, [])
+
+  // 当remainingTokens更新时更新user状态
+  useEffect(() => {
+    if (remainingTokens !== undefined && user) {
+      setUser({
+        ...user,
+        credits: {
+          ...user.credits,
+          remaining_tokens: remainingTokens
+        }
+      });
+    }
+  }, [remainingTokens]);
 
   const checkAuthStatus = async () => {
     try {
