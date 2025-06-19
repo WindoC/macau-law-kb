@@ -30,17 +30,28 @@ A comprehensive AI-powered legal search, Q&A, and consultation platform for Maca
 
 ```mermaid
 graph TD
-    A[User Input] --> B[Input Analysis]
-    B --> C[Keyword Extraction]
-    C --> D[Vector Embedding]
-    D --> E[Similarity Search]
-    E --> F[Document Retrieval]
-    F --> G[AI Response Generation]
-    G --> H[Streaming Response]
-    H --> I[User Interface]
-    
-    J[Token Management] --> G
-    K[History Storage] --> I
+    A["用户请求（如搜索/问答/顾问）"] --> B["权限与令牌校验"]
+    B --> C["输入分析/关键词提取"]
+    C --> D["生成向量嵌入"]
+    D --> E["向量相似度检索法律文档"]
+    E --> F["AI 生成答案/回复"]
+    F --> G["流式响应返回前端"]
+    G --> H["前端展示与历史记录保存"]
+
+    subgraph 令牌与权限
+      B
+    end
+    subgraph AI 处理
+      C
+      D
+      E
+      F
+    end
+    subgraph 用户交互
+      A
+      G
+      H
+    end
 ```
 
 ## Codebase Structure
@@ -49,40 +60,40 @@ graph TD
 webapp/
 ├── src/
 │   ├── app/                    # Next.js App Router
-│   │   ├── layout.tsx         # Root layout
-│   │   ├── page.tsx           # Home page
-│   │   ├── globals.css        # Global styles
-│   │   ├── auth/              # Authentication pages
-│   │   │   ├── login/        # Login page
-│   │   │   ├── error/        # Error page
-│   │   │   └── callback/     # OAuth callbacks
-│   │   ├── search/           # Legal search pages
-│   │   ├── qa/               # Q&A pages
-│   │   ├── consultant/       # Consultant chat pages
-│   │   ├── profile/          # User profile
-│   │   ├── admin/            # Admin dashboard
-│   │   └── api/              # API routes
-│   │       ├── auth/         # Authentication endpoints
-│   │       ├── search/       # Search endpoints
-│   │       ├── qa/           # Q&A endpoints
-│   │       └── consultant/   # Consultant endpoints
-│   ├── components/           # Reusable UI components
-│   │   ├── ui/              # Basic UI components
-│   │   ├── auth/            # Authentication components
-│   │   ├── search/          # Search-related components
-│   │   ├── chat/            # Chat interface components
-│   │   └── layout/          # Layout components
-│   ├── contexts/            # React contexts
-│   │   └── AuthContext.tsx  # Authentication context
-│   ├── lib/                 # Core utilities
-│   │   ├── db.ts           # Database client
-│   │   ├── gemini.ts       # AI integration
-│   │   ├── auth-service.ts # Authentication service
-│   │   ├── oidc-providers.ts # OIDC configuration
-│   │   └── vector-search.ts # Vector search utilities
-│   ├── types/              # TypeScript definitions
-│   │   └── index.ts        # Type definitions
-│   └── middleware.ts       # Route protection
+│   │   ├── layout.tsx          # 根布局
+│   │   ├── page.tsx            # 首页
+│   │   ├── globals.css         # 全局样式
+│   │   ├── auth/               # 认证页面
+│   │   │   ├── login/          # 登录页
+│   │   │   ├── error/          # 错误页
+│   │   │   └── callback/       # OAuth 回调页
+│   │   ├── search/             # 法律检索页
+│   │   ├── qa/                 # 法律问答页
+│   │   ├── consultant/         # 法律顾问对话页
+│   │   ├── profile/            # 用户资料页
+│   │   ├── db-debug/           # 数据库调试页
+│   │   ├── debug/              # 系统调试页
+│   │   └── api/                # API 路由
+│   │       ├── auth/           # 认证相关 API
+│   │       │   ├── [provider]/     # 动态 OAuth 提供商
+│   │       │   ├── logout/         # 登出
+│   │       │   ├── callback/       # OAuth 回调
+│   │       │   │   ├── [provider]/
+│   │       │   └── __tests__/      # 认证 API 测试
+│   │       ├── search/         # 法律检索 API
+│   │       ├── qa/             # 法律问答 API
+│   │       ├── consultant/     # 法律顾问 API
+│   │       ├── profile/        # 用户资料 API
+│   │       │   └── __tests__/
+│   │       ├── db-debug/       # 数据库调试 API
+│   │       ├── debug-auth/     # 认证调试 API
+│   │       └── health/         # 健康检查 API
+│   ├── components/             # 可复用 UI 组件
+│   ├── contexts/               # React 上下文
+│   ├── lib/                    # 核心工具库
+│   │   ├── __tests__/              # 工具库测试
+│   ├── types/                  # TypeScript 类型定义
+│   └── middleware.ts           # 路由中间件
 ├── tests/                  # Test files
 │   ├── setup.ts           # Test configuration
 │   ├── db.test.ts         # Database tests
