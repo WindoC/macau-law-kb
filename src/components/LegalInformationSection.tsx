@@ -100,9 +100,8 @@ export default function LegalInformationSection() {
                     <p>本平台仰賴第三方技術服務如：</p>
                     <ul>
                       <li><strong>Google Gemini AI</strong>（AI 回應生成）</li>
-                      <li><strong>Supabase</strong>（身份驗證與資料儲存）</li>
+                      <li><strong>Supabase</strong>（資料儲存）</li>
                       <li><strong>Cloudflare CAPTCHA</strong>（濫用防護）等</li>
-                      <li><strong>Vercel</strong>（平台部署與內容交付）</li>
                     </ul>
                     <p>我們對上述第三方服務之可用性、安全性與正確性不提供保證。</p>
                   </div>
