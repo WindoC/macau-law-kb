@@ -7,6 +7,7 @@ import { useAuth } from '@/contexts/AuthContext'
 import CaptchaWidget from '@/components/CaptchaWidget'
 import { validateCaptchaToken, CAPTCHA_ERRORS } from '@/lib/captcha'
 import LegalInformationSection from '@/components/LegalInformationSection'
+import LoginForm from '@/components/LoginForm'
 
 /**
  * Main landing page component
@@ -90,66 +91,15 @@ function LandingPage() {
                 運用人工智能技術，為您提供澳門法律搜索、問答和諮詢服務
               </p>
 
-
-              <div className="d-grid gap-2 d-md-flex">
-                <Button
-                  variant="light"
-                  size="lg"
-                  onClick={() => handleLogin('google')}
-                  className="me-md-2"
-                  disabled={loginLoading || !captchaToken}
-                >
-                  {loginLoading ? (
-                    <>
-                      <span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
-                      登入中...
-                    </>
-                  ) : (
-                    <>
-                      <i className="fab fa-google me-2"></i>
-                      使用 Google 登入
-                    </>
-                  )}
-                </Button>
-                <Button
-                  variant="outline-light"
-                  size="lg"
-                  onClick={() => handleLogin('github')}
-                  disabled={loginLoading || !captchaToken}
-                >
-                  {loginLoading ? (
-                    <>
-                      <span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
-                      登入中...
-                    </>
-                  ) : (
-                    <>
-                      <i className="fab fa-github me-2"></i>
-                      使用 GitHub 登入
-                    </>
-                  )}
-                </Button>
-              </div>
-
-              <br />
-              <label className="form-label">人機驗證</label>
-              {/* CAPTCHA Error Alert */}
-              {captchaError && (
-                <div className="alert alert-warning mb-3">
-                  <i className="fas fa-exclamation-triangle me-2"></i>
-                  {captchaError}
-                </div>
-              )}
-
-              {/* CAPTCHA Widget */}
-              <div className="mb-4">
-                <CaptchaWidget
-                  onVerify={handleCaptchaVerify}
-                  onError={handleCaptchaError}
-                  onExpire={handleCaptchaExpire}
-                  disabled={loginLoading}
-                />
-              </div>
+              {/* LoginForm 元件 */}
+              <LoginForm
+                loginLoading={loginLoading}
+                captchaToken={captchaToken}
+                handleLogin={handleLogin}
+                handleCaptchaVerify={handleCaptchaVerify}
+                handleCaptchaError={handleCaptchaError}
+                handleCaptchaExpire={handleCaptchaExpire}
+              />
             </Col>
             <Col lg={6} className="text-center">
               <div className="bg-white rounded-3 p-4 shadow">
