@@ -4,6 +4,7 @@ import React, { Suspense, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { Container, Row, Col, Card, Button, Alert, Modal } from 'react-bootstrap';
 import Link from 'next/link';
+import { ContactModal, ContactButton } from '@/components/ContactModal';
 
 /**
  * Authentication Error Page
@@ -168,33 +169,15 @@ function AuthErrorContent() {
                   </div>
                   
                   <div className="mt-3">
-                    <Button
-                      variant="link"
-                      size="sm"
-                      onClick={() => setShowContactModal(true)}
-                      className="text-decoration-none"
-                    >
-                      <i className="fas fa-envelope me-1"></i>
-                      聯繫客服
-                    </Button>
+                    <ContactButton onClick={() => setShowContactModal(true)} />
                   </div>
                 </div>
 
                 {/* Contact Modal */}
-                <Modal show={showContactModal} onHide={() => setShowContactModal(false)} centered>
-                  <Modal.Header closeButton>
-                    <Modal.Title>聯絡我們</Modal.Title>
-                  </Modal.Header>
-                  <Modal.Body>
-                    <p>請通過以下電子郵件地址聯繫我們：</p>
-                    <p className="text-primary">windo.ac@gmail.com</p>
-                  </Modal.Body>
-                  <Modal.Footer>
-                    <Button variant="secondary" onClick={() => setShowContactModal(false)}>
-                      關閉
-                    </Button>
-                  </Modal.Footer>
-                </Modal>
+                <ContactModal
+                  show={showContactModal}
+                  onHide={() => setShowContactModal(false)}
+                />
               </Card.Body>
             </Card>
           </Col>
