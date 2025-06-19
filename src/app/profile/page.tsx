@@ -64,7 +64,7 @@ export default function ProfilePage() {
   const getRoleDescription = (role: string) => {
     const descriptions = {
       admin: '完全訪問所有功能和管理控制',
-      free: '登記免費送 100,000 Token，可使用搜索和問答功能，如要使用諮詢請按頁底的"升級帳戶"',
+      free: '登記免費送 100,000代幣，可使用搜索和問答功能，如要使用諮詢請按頁底的"升級帳戶"',
       pay: '無限制訪問，按使用量付費',
       vip: '高級訪問，包含進階AI模型',
     };
@@ -187,7 +187,7 @@ export default function ProfilePage() {
               <div className="card-header bg-success text-white">
                 <h5 className="mb-0">
                   <i className="fas fa-coins me-2"></i>
-                  Token 使用情況
+                  代幣使用情況
                 </h5>
               </div>
               <div className="card-body">
@@ -197,7 +197,7 @@ export default function ProfilePage() {
                       <div className="col-md-6">
                         <div className="text-center p-3 bg-primary text-white rounded">
                           <h4>{user.credits.remaining_tokens.toLocaleString()}</h4>
-                          <small>剩餘Token</small>
+                          <small>剩餘代幣</small>
                         </div>
                       </div>
                       <div className="col-md-6">
