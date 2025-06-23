@@ -35,7 +35,16 @@ export async function searchDocuments(
 ): Promise<DocumentResult[]> {
   try {
     const results = await db.query<DocumentResult>(
-      'SELECT * FROM match_documents($1, $2, $3)',
+      // 'SELECT * FROM match_documents($1, $2, $3)',
+      ` SELECT
+          id,
+          content,
+          metadata,
+          1 - (embedding <=> $1::vector) AS similarity
+        FROM documents
+        WHERE metadata @> $3
+        ORDER BY embedding <=> $1::vector
+        LIMIT $2 `,
       [`[${embedding.join(',')}]`, matchCount, filter]
     );
     
