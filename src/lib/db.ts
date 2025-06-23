@@ -15,8 +15,11 @@ interface DatabaseConfig {
 class DatabaseManager {
   private pool: Pool;
   private static instance: DatabaseManager;
+  private search_path: string;
   
   constructor() {
+    this.search_path = process.env.DB_SEARCH_PATH || 'public, extensions';
+    console.log(`Using search_path: ${this.search_path}`);
     // Use DATABASE_URL if available, otherwise fall back to individual variables
     if (process.env.DATABASE_URL) {
       this.pool = new Pool({
@@ -51,6 +54,13 @@ class DatabaseManager {
     
     this.pool.on('error', (err) => {
       console.error('Unexpected error on idle client', err);
+    });
+    // 设置 search_path
+    this.pool.on('connect', (client) => {
+      client.query(`SET search_path TO ${this.search_path}`)
+        .catch((err) => {
+          console.error('Failed to set search_path:', err);
+        });
     });
   }
   
