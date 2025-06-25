@@ -79,7 +79,7 @@ export async function middleware(request: NextRequest) {
         );
       } else {
         // Redirect to login for page routes
-        const loginUrl = new URL(base_url+'/auth/login', request.url);
+        const loginUrl = new URL('/auth/login', base_url);
         loginUrl.searchParams.set('redirect', pathname);
         return NextResponse.redirect(loginUrl);
       }

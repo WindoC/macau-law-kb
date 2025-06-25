@@ -19,7 +19,7 @@ export async function GET(
     
     // Validate provider
     if (!['google', 'github'].includes(provider)) {
-      return NextResponse.redirect(new URL(base_url+'/auth/error?error=invalid_provider', request.url));
+      return NextResponse.redirect(new URL('/auth/error?error=invalid_provider', base_url));
     }
     
     // Extract OAuth parameters
@@ -32,14 +32,14 @@ export async function GET(
     if (error) {
       console.error(`OAuth error from ${provider}:`, error, errorDescription);
       return NextResponse.redirect(
-        new URL(base_url+`/auth/error?error=${encodeURIComponent(error)}&description=${encodeURIComponent(errorDescription || '')}`, request.url)
+        new URL(`/auth/error?error=${encodeURIComponent(error)}&description=${encodeURIComponent(errorDescription || '')}`, base_url)
       );
     }
     
     // Validate required parameters
     if (!code || !state) {
       console.error('Missing required OAuth parameters:', { code: !!code, state: !!state });
-      return NextResponse.redirect(new URL(base_url+'/auth/error?error=missing_parameters', request.url));
+      return NextResponse.redirect(new URL('/auth/error?error=missing_parameters', base_url));
     }
     
     // Retrieve and validate stored state
@@ -48,7 +48,7 @@ export async function GET(
     
     if (!storedState || state !== storedState) {
       console.error('OAuth state mismatch:', { received: state, stored: storedState });
-      return NextResponse.redirect(new URL(base_url+'/auth/error?error=state_mismatch', request.url));
+      return NextResponse.redirect(new URL('/auth/error?error=state_mismatch', base_url));
     }
     
     // Handle OIDC callback and get user tokens
@@ -60,7 +60,7 @@ export async function GET(
     );
     
     // Create successful redirect response
-    const response = NextResponse.redirect(new URL(base_url+'/', request.url));
+    const response = NextResponse.redirect(new URL('/', base_url));
     
     // Set authentication cookies
     SessionManager.setAuthCookies(response, tokens);
@@ -90,7 +90,7 @@ export async function GET(
     }
     
     return NextResponse.redirect(
-      new URL(base_url+`/auth/error?error=${errorCode}&provider=${provider}`, request.url)
+      new URL(`/auth/error?error=${errorCode}&provider=${provider}`, base_url)
     );
   }
 }
