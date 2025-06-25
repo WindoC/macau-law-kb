@@ -1,40 +1,60 @@
-import { supabase } from '@/lib/supabase';
+import { NextRequest, NextResponse } from 'next/server';
+import { SessionManager } from '@/lib/session';
 
 /**
- * POST /api/auth/logout
- * Log out the current user
+ * Handle user logout
+ * POST /api/auth/logout - Clear authentication cookies and session
  */
-export async function POST() {
+export async function POST(request: NextRequest) {
   try {
-    const { error } = await supabase.auth.signOut();
+    // Create response
+    const response = NextResponse.json(
+      { message: 'Logged out successfully' },
+      { status: 200 }
+    );
     
-    if (error) {
-      console.error('Logout error:', error);
-      return new Response(
-        JSON.stringify({ error: '登出失敗' }),
-        { 
-          status: 500,
-          headers: { 'Content-Type': 'application/json' }
-        }
-      );
-    }
-
-    return new Response(
-      JSON.stringify({ message: '成功登出' }),
-      { 
-        status: 200,
-        headers: { 'Content-Type': 'application/json' }
-      }
-    );
-
+    // Clear authentication cookies
+    SessionManager.clearAuthCookies(response);
+    
+    console.log('User logged out successfully');
+    
+    return response;
   } catch (error) {
-    console.error('Logout API error:', error);
-    return new Response(
-      JSON.stringify({ error: '服務器錯誤' }),
+    console.error('Logout error:', error);
+    
+    return NextResponse.json(
       { 
-        status: 500,
-        headers: { 'Content-Type': 'application/json' }
-      }
+        error: 'Logout failed',
+        details: process.env.NODE_ENV === 'development' ? (error as Error).message : undefined
+      },
+      { status: 500 }
     );
+  }
+}
+
+/**
+ * Handle logout via GET request (for direct navigation)
+ * GET /api/auth/logout - Clear cookies and redirect to home
+ */
+export async function GET(request: NextRequest) {
+  const base_url = process.env.NEXTAUTH_URL || 'http://localhost:3000';
+  try {
+    // Create redirect response to home page
+    const response = NextResponse.redirect(new URL('/', base_url));
+    
+    // Clear authentication cookies
+    SessionManager.clearAuthCookies(response);
+    
+    console.log('User logged out successfully via GET');
+    
+    return response;
+  } catch (error) {
+    console.error('Logout error:', error);
+    
+    // Still redirect to home even if there's an error
+    const response = NextResponse.redirect(new URL('/', base_url));
+    SessionManager.clearAuthCookies(response);
+    
+    return response;
   }
 }

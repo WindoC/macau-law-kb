@@ -1,39 +1,20 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import Link from 'next/link'
 import { Container, Row, Col, Card, Button } from 'react-bootstrap'
-import { supabase } from '@/lib/supabase'
-import type { User } from '@supabase/supabase-js'
+import { useAuth } from '@/contexts/AuthContext'
 import CaptchaWidget from '@/components/CaptchaWidget'
 import { validateCaptchaToken, CAPTCHA_ERRORS } from '@/lib/captcha'
 import LegalInformationSection from '@/components/LegalInformationSection'
+import LoginForm from '@/components/LoginForm'
 
 /**
  * Main landing page component
  * Shows different content based on authentication status
  */
 export default function HomePage() {
-  const [user, setUser] = useState<User | null>(null)
-  const [loading, setLoading] = useState(true)
-
-  useEffect(() => {
-    // Get initial session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setUser(session?.user ?? null)
-      setLoading(false)
-    })
-
-    // Listen for auth changes
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user ?? null)
-      setLoading(false)
-    })
-
-    return () => subscription.unsubscribe()
-  }, [])
+  const { user, loading } = useAuth()
 
   if (loading) {
     return (
@@ -49,7 +30,7 @@ export default function HomePage() {
     return <LandingPage />
   }
 
-  return <DashboardPage user={user} />
+  return <DashboardPage />
 }
 
 /**
@@ -71,23 +52,12 @@ function LandingPage() {
     setCaptchaError(null)
 
     try {
-      const { error } = await supabase.auth.signInWithOAuth({
-        provider,
-        options: {
-          redirectTo: `${typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000'}/auth/callback`
-        }
-      })
-      
-      if (error) {
-        console.error('Login error:', error)
-        alert('登入失敗，請稍後再試')
-        setCaptchaToken(null) // Reset CAPTCHA on error
-      }
+      // Redirect to our authentication endpoint
+      window.location.href = `/api/auth/${provider}`
     } catch (error) {
       console.error('Login error:', error)
       alert('登入失敗，請稍後再試')
       setCaptchaToken(null) // Reset CAPTCHA on error
-    } finally {
       setLoginLoading(false)
     }
   }
@@ -121,66 +91,15 @@ function LandingPage() {
                 運用人工智能技術，為您提供澳門法律搜索、問答和諮詢服務
               </p>
 
-
-              <div className="d-grid gap-2 d-md-flex">
-                <Button
-                  variant="light"
-                  size="lg"
-                  onClick={() => handleLogin('google')}
-                  className="me-md-2"
-                  disabled={loginLoading || !captchaToken}
-                >
-                  {loginLoading ? (
-                    <>
-                      <span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
-                      登入中...
-                    </>
-                  ) : (
-                    <>
-                      <i className="fab fa-google me-2"></i>
-                      使用 Google 登入
-                    </>
-                  )}
-                </Button>
-                <Button
-                  variant="outline-light"
-                  size="lg"
-                  onClick={() => handleLogin('github')}
-                  disabled={loginLoading || !captchaToken}
-                >
-                  {loginLoading ? (
-                    <>
-                      <span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
-                      登入中...
-                    </>
-                  ) : (
-                    <>
-                      <i className="fab fa-github me-2"></i>
-                      使用 GitHub 登入
-                    </>
-                  )}
-                </Button>
-              </div>
-
-              <br />
-              <label className="form-label">人機驗證</label>
-              {/* CAPTCHA Error Alert */}
-              {captchaError && (
-                <div className="alert alert-warning mb-3">
-                  <i className="fas fa-exclamation-triangle me-2"></i>
-                  {captchaError}
-                </div>
-              )}
-
-              {/* CAPTCHA Widget */}
-              <div className="mb-4">
-                <CaptchaWidget
-                  onVerify={handleCaptchaVerify}
-                  onError={handleCaptchaError}
-                  onExpire={handleCaptchaExpire}
-                  disabled={loginLoading}
-                />
-              </div>
+              {/* LoginForm 元件 */}
+              <LoginForm
+                loginLoading={loginLoading}
+                captchaToken={captchaToken}
+                handleLogin={handleLogin}
+                handleCaptchaVerify={handleCaptchaVerify}
+                handleCaptchaError={handleCaptchaError}
+                handleCaptchaExpire={handleCaptchaExpire}
+              />
             </Col>
             <Col lg={6} className="text-center">
               <div className="bg-white rounded-3 p-4 shadow">
@@ -279,14 +198,16 @@ function LandingPage() {
 /**
  * Dashboard page for authenticated users
  */
-function DashboardPage({ user }: { user: User }) {
+function DashboardPage() {
+  const { user, logout } = useAuth()
+
+  if (!user) {
+    return null
+  }
+
   const handleLogout = async () => {
     try {
-      const { error } = await supabase.auth.signOut()
-      if (error) {
-        console.error('Logout error:', error)
-        alert('登出失敗，請稍後再試')
-      }
+      await logout()
     } catch (error) {
       console.error('Logout error:', error)
       alert('登出失敗，請稍後再試')
@@ -309,7 +230,7 @@ function DashboardPage({ user }: { user: User }) {
                 role="button"
                 data-bs-toggle="dropdown"
               >
-                {user.user_metadata?.name || user.email}
+                {user.name || user.email}
               </a>
               <ul className="dropdown-menu">
                 <li><a className="dropdown-item" href="/profile">個人資料</a></li>
@@ -329,7 +250,7 @@ function DashboardPage({ user }: { user: User }) {
       <Container className="py-4">
         <Row className="mb-4">
           <Col>
-            <h1>歡迎回來，{user.user_metadata?.name || '用戶'}</h1>
+            <h1>歡迎回來，{user.name || '用戶'}</h1>
             <p className="text-muted">選擇您需要的法律服務</p>
           </Col>
         </Row>

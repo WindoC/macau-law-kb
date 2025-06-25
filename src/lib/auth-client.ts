@@ -17,12 +17,15 @@ export interface AuthenticatedUser {
   name?: string;
   avatar_url?: string;
   role: UserRole;
+  provider: string;
   created_at: string;
   updated_at: string;
-  // Credits info from user_credits table
-  total_tokens?: number;
-  used_tokens?: number;
-  remaining_tokens?: number;
+  credits: {
+    total_tokens: number;
+    used_tokens: number;
+    remaining_tokens: number;
+    last_reset: string;
+  }
 }
 
 /**
@@ -35,45 +38,25 @@ export interface AuthResult {
 }
 
 /**
- * Extracts the session token from the client-side Supabase session
- * This should be called on the client side to get the token for API requests
- */
-export function getSessionToken(): string | null {
-  if (typeof window === 'undefined') return null;
-  
-  try {
-    // Get the session from localStorage where Supabase stores it
-    const session = localStorage.getItem(process.env.NEXT_PUBLIC_LOCALSTORAGE_ID || 'localstorage-auth-token');
-    if (!session) return null;
-    
-    const parsed = JSON.parse(session);
-    return parsed?.access_token || null;
-  } catch (error) {
-    console.error('Error getting session token:', error);
-    return null;
-  }
-}
-
-/**
  * Get current user from client-side (for use in React components)
  * This function should be used in client components to get the current user
  */
-export async function getCurrentUser(): Promise<any | null> {
+export async function getCurrentUser(): Promise<AuthenticatedUser | null> {
   if (typeof window === 'undefined') {
     return null; // Server-side, return null
   }
 
   try {
-    // Get the session from localStorage where Supabase stores it
-    const session = localStorage.getItem(process.env.NEXT_PUBLIC_LOCALSTORAGE_ID || 'localstorage-auth-token');
-    if (!session) return null;
+    const response = await fetch('/api/profile', {
+      credentials: 'include'
+    });
     
-    const parsed = JSON.parse(session);
-    const user = parsed?.user;
+    if (response.ok) {
+      const userData = await response.json();
+      return userData;
+    }
     
-    if (!user) return null;
-    
-    return user;
+    return null;
   } catch (error) {
     console.error('Error getting current user:', error);
     return null;
@@ -84,7 +67,10 @@ export async function getCurrentUser(): Promise<any | null> {
  * Check if user has sufficient credits for an operation
  */
 export function hasCredits(user: AuthenticatedUser, requiredCredits: number): boolean {
-  return (user.remaining_tokens || 0) >= requiredCredits;
+  // Admin users have unlimited tokens
+  if (user.role === 'admin') return true;
+  
+  return (user.credits.remaining_tokens || 0) >= requiredCredits;
 }
 
 /**
@@ -146,4 +132,45 @@ export function createSuccessResponse(data: any, status: number = 200) {
  */
 export function validateMethod(request: { method: string }, allowedMethods: string[]): boolean {
   return allowedMethods.includes(request.method);
+}
+
+/**
+ * Check if user is authenticated by making a request to the profile endpoint
+ */
+export async function isAuthenticated(): Promise<boolean> {
+  if (typeof window === 'undefined') {
+    return false; // Server-side, return false
+  }
+
+  try {
+    const response = await fetch('/api/profile', {
+      credentials: 'include'
+    });
+    
+    return response.ok;
+  } catch (error) {
+    console.error('Error checking authentication:', error);
+    return false;
+  }
+}
+
+/**
+ * Logout user by calling the logout endpoint
+ */
+export async function logout(): Promise<boolean> {
+  if (typeof window === 'undefined') {
+    return false;
+  }
+
+  try {
+    const response = await fetch('/api/auth/logout', {
+      method: 'POST',
+      credentials: 'include'
+    });
+    
+    return response.ok;
+  } catch (error) {
+    console.error('Error during logout:', error);
+    return false;
+  }
 }

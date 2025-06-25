@@ -1,17 +1,14 @@
 import { NextRequest } from 'next/server';
-import {
-  authenticateRequest,
-  validateMethod,
-  logAPIUsage
-} from '@/lib/auth-server';
+import { SessionManager } from '@/lib/session';
 import {
   hasFeatureAccess,
   hasTokens,
   canUseProModel,
-  createErrorResponse
+  createErrorResponse,
+  validateMethod
 } from '@/lib/auth-client';
 import { generateConsultantChatResponse, countTokens , generateEmbedding , searchResultsToMarkdown } from '@/lib/gemini';
-import { saveConversation, updateTokenUsage , searchDocuments } from '@/lib/database';
+import { saveConversation, updateTokenUsage , searchDocuments } from '@/lib/database-new';
 
 // Temporarily disable Edge Runtime due to jsonwebtoken dependency
 // export const runtime = 'edge';
@@ -24,22 +21,29 @@ export const runtime = 'nodejs';
 export async function POST(request: NextRequest) {
   // console.log('POST request received at /api/consultant');
   try {
-    // console.log('Validating method...');
-    const validateMethodResult = validateMethod(request, ['POST']);
-    // console.log('validateMethod input:', request.method);
-    // console.log('validateMethod output:', validateMethodResult);
-    if (!validateMethodResult) {
+    // Validate method
+    if (!validateMethod(request, ['POST'])) {
       return createErrorResponse('不允許使用此方法', 405);
     }
 
-    // console.log('Authenticating request...');
-    const authResult = await authenticateRequest(request);
-    // console.log('authenticateRequest input:', request);
-    // console.log('authenticateRequest output:', authResult);
-    if (!authResult.success || !authResult.user) {
-      return createErrorResponse(authResult.error || '未經授權', 401);
+    // Authenticate user
+    const session = await SessionManager.getSession(request);
+    if (!session) {
+      return createErrorResponse('未經授權', 401);
     }
-    const user = authResult.user;
+
+    // Get user profile to check permissions and tokens
+    const profileResponse = await fetch(`${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/api/profile`, {
+      headers: {
+        'Cookie': request.headers.get('Cookie') || ''
+      }
+    });
+
+    if (!profileResponse.ok) {
+      return createErrorResponse('無法獲取用戶資料', 401);
+    }
+
+    const user = await profileResponse.json();
 
     // console.log('Checking feature access...');
     const hasFeatureAccessResult = hasFeatureAccess(user, 'consultant');
@@ -250,44 +254,35 @@ export async function POST(request: NextRequest) {
           });
 
           // Update token usage and save conversation
-          // console.log('Updating token usage...');
-          await updateTokenUsage(user.id, finalTokens);
-          // console.log('updateTokenUsage input:', user.id, finalTokens);
+          const remaining_tokens = await updateTokenUsage(session, 'consultant', finalTokens);
 
           // Save conversation and messages
-          // console.log('Saving conversation and messages...');
           let savedConversationId = conversationId;
 
           try {
-            const modelName = useProModel ? 'gemini-2.5-pro-preview-05-20' : 'gemini-2.5-flash-preview-05-20';
+            const modelName = useProModel ? 'pro' : 'flash';
             const conversationTitle = fullConversationHistory.length === 2 ? `諮詢: ${message.substring(0, 50)}...` : undefined;
             
             savedConversationId = await saveConversation(
-              user.id,
+              session,
               conversationId,
               fullConversationHistory,
               conversationTitle,
               finalTokens,
               modelName
             );
-            
-            // console.log('Conversation saved successfully:', savedConversationId);
           } catch (saveError) {
             console.error('Failed to save conversation:', saveError);
             // Fallback to temporary ID if saving fails
             savedConversationId = conversationId || 'temp-' + Date.now();
           }
 
-          // console.log('Logging API usage...');
-          await logAPIUsage(user.id, 'consultant', finalTokens);
-          // console.log('logAPIUsage input:', user.id, 'consultant', finalTokens);
-
           send({
             type: 'completion',
             content: {
               conversationId: savedConversationId,
-              tokensUsed: finalTokens,
-              remainingTokens: (user.remaining_tokens || 0) - finalTokens
+              tokens_used: finalTokens,
+              remaining_tokens: remaining_tokens || 0
             }
           });
 

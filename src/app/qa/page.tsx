@@ -20,6 +20,7 @@ export default function QAPage() {
   const [currentStep, setCurrentStep] = useState('');
   const [fragmentIdentifiers, setFragmentIdentifiers] = useState<{[key: string]: string}>({});
   const [expandedSources, setExpandedSources] = useState<{[key: string]: boolean}>({});
+  const [remainingTokens, setRemainingTokens] = useState<number | undefined>(undefined);
 
   useEffect(() => {
     const extractFragmentIdentifiers = () => {
@@ -65,10 +66,10 @@ export default function QAPage() {
     setCurrentStep('');
 
     try {
-      const { getSessionToken } = await import('@/lib/auth-client');
-      const token = await getSessionToken();
+      const { isAuthenticated } = await import('@/lib/auth-client');
+      const authenticated = await isAuthenticated();
       
-      if (!token) {
+      if (!authenticated) {
         setError('請先登入');
         setLoading(false);
         return;
@@ -78,8 +79,8 @@ export default function QAPage() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
         },
+        credentials: 'include',
         body: JSON.stringify({ question }),
       });
 
@@ -124,6 +125,11 @@ export default function QAPage() {
                   setSources(data.content);
                 } else if (data.type === 'error') {
                   setError(data.content);
+                } else if (data.type === 'tokens') {
+                  // 更新剩余代币
+                  if (data.content.remaining_tokens !== undefined) {
+                    setRemainingTokens(data.content.remaining_tokens);
+                  }
                 }
               } catch (e) {
                 console.error('Error parsing stream data:', e, 'Data string:', dataStr);
@@ -150,7 +156,7 @@ export default function QAPage() {
 
   return (
     <>
-      <Navigation />
+      <Navigation remainingTokens={remainingTokens} />
       <div className="container mt-4">
         <div className="row">
           <div className="col-12">

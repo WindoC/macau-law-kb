@@ -1,18 +1,13 @@
 import { render, screen } from '@testing-library/react'
 import '@testing-library/jest-dom'
 import HomePage from './page'
+import { AuthProvider } from '@/contexts/AuthContext'
 
-// Mock Supabase
-jest.mock('@/lib/supabase', () => ({
-  supabase: {
-    auth: {
-      getSession: jest.fn().mockResolvedValue({ data: { session: null } }),
-      onAuthStateChange: jest.fn().mockReturnValue({
-        data: { subscription: { unsubscribe: jest.fn() } }
-      }),
-      signInWithOAuth: jest.fn()
-    }
-  }
+// Mock auth-client
+jest.mock('@/lib/auth-client', () => ({
+  isAuthenticated: jest.fn().mockResolvedValue(false),
+  getUser: jest.fn().mockResolvedValue(null),
+  logout: jest.fn().mockResolvedValue(undefined)
 }))
 
 // Mock CaptchaWidget
@@ -32,6 +27,16 @@ jest.mock('@/lib/captcha', () => ({
   }
 }))
 
+// Mock AuthContext
+const mockAuthContext = {
+  user: null,
+  loading: false,
+  login: jest.fn(),
+  logout: jest.fn(),
+  refreshProfile: jest.fn(),
+  isAuthenticated: false
+}
+
 /**
  * Test suite for HomePage component
  * Verifies that legal documents are properly integrated
@@ -42,8 +47,16 @@ describe('HomePage Legal Documents Integration', () => {
     jest.clearAllMocks()
   })
 
+  const renderWithAuth = (component: React.ReactNode) => {
+    return render(
+      <AuthProvider>
+        {component}
+      </AuthProvider>
+    )
+  }
+
   it('renders the legal information section', async () => {
-    render(<HomePage />)
+    renderWithAuth(<HomePage />)
     
     // Wait for component to load
     await screen.findByText('澳門法律知識庫')
@@ -54,7 +67,7 @@ describe('HomePage Legal Documents Integration', () => {
   })
 
   it('renders all three legal document accordions', async () => {
-    render(<HomePage />)
+    renderWithAuth(<HomePage />)
     
     // Wait for component to load
     await screen.findByText('澳門法律知識庫')
@@ -73,7 +86,7 @@ describe('HomePage Legal Documents Integration', () => {
   })
 
   it('contains proper legal content structure', async () => {
-    render(<HomePage />)
+    renderWithAuth(<HomePage />)
     
     // Wait for component to load
     await screen.findByText('澳門法律知識庫')
@@ -85,7 +98,7 @@ describe('HomePage Legal Documents Integration', () => {
   })
 
   it('has proper accessibility attributes for accordions', async () => {
-    render(<HomePage />)
+    renderWithAuth(<HomePage />)
     
     // Wait for component to load
     await screen.findByText('澳門法律知識庫')
@@ -108,7 +121,7 @@ describe('HomePage Legal Documents Integration', () => {
   })
 
   it('displays proper icons for each legal document section', async () => {
-    render(<HomePage />)
+    renderWithAuth(<HomePage />)
     
     // Wait for component to load
     await screen.findByText('澳門法律知識庫')

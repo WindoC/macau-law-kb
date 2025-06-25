@@ -1,6 +1,6 @@
 # Macau Law Knowledge Base Web Application
 
-A comprehensive AI-powered legal search, Q&A, and consultation platform for Macau law, built with Next.js, Supabase, and Google Gemini AI.
+A comprehensive AI-powered legal search, Q&A, and consultation platform for Macau law, built with Next.js, PostgreSQL, and Google Gemini AI.
 
 ## Overview of Core Logic / Architecture
 
@@ -15,8 +15,8 @@ A comprehensive AI-powered legal search, Q&A, and consultation platform for Maca
          │                       │                       │
          ▼                       ▼                       ▼
 ┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
-│   User Auth     │    │   Vector DB     │    │   Embedding     │
-│   (Supabase)    │    │   (Supabase)    │    │   Generation    │
+│   OIDC Auth     │    │   PostgreSQL    │    │   Embedding     │
+│  (Google/GitHub)│    │   (Direct)      │    │   Generation    │
 └─────────────────┘    └─────────────────┘    └─────────────────┘
 ```
 
@@ -30,17 +30,28 @@ A comprehensive AI-powered legal search, Q&A, and consultation platform for Maca
 
 ```mermaid
 graph TD
-    A[User Input] --> B[Input Analysis]
-    B --> C[Keyword Extraction]
-    C --> D[Vector Embedding]
-    D --> E[Similarity Search]
-    E --> F[Document Retrieval]
-    F --> G[AI Response Generation]
-    G --> H[Streaming Response]
-    H --> I[User Interface]
-    
-    J[Token Management] --> G
-    K[History Storage] --> I
+    A["用户请求（如搜索/问答/顾问）"] --> B["权限与令牌校验"]
+    B --> C["输入分析/关键词提取"]
+    C --> D["生成向量嵌入"]
+    D --> E["向量相似度检索法律文档"]
+    E --> F["AI 生成答案/回复"]
+    F --> G["流式响应返回前端"]
+    G --> H["前端展示与历史记录保存"]
+
+    subgraph 令牌与权限
+      B
+    end
+    subgraph AI 处理
+      C
+      D
+      E
+      F
+    end
+    subgraph 用户交互
+      A
+      G
+      H
+    end
 ```
 
 ## Codebase Structure
@@ -49,40 +60,55 @@ graph TD
 webapp/
 ├── src/
 │   ├── app/                    # Next.js App Router
-│   │   ├── layout.tsx         # Root layout
-│   │   ├── page.tsx           # Home page
-│   │   ├── globals.css        # Global styles
-│   │   ├── auth/
-│   │   │   └── callback/      # OAuth callback
-│   │   ├── search/            # Legal search pages
-│   │   ├── qa/                # Q&A pages
-│   │   ├── consultant/        # Consultant chat pages
-│   │   ├── profile/           # User profile
-│   │   ├── admin/             # Admin dashboard
-│   │   └── api/               # API routes
-│   │       ├── auth/          # Authentication
-│   │       ├── search/        # Search endpoints
-│   │       ├── qa/            # Q&A endpoints
-│   │       └── consultant/    # Consultant endpoints
-│   ├── components/            # Reusable UI components
-│   │   ├── ui/               # Basic UI components
-│   │   ├── search/           # Search-related components
-│   │   ├── chat/             # Chat interface components
-│   │   └── layout/           # Layout components
-│   ├── lib/                  # Core utilities
-│   │   ├── supabase.ts       # Database client
-│   │   ├── gemini.ts         # AI integration
-│   │   ├── auth.ts           # Authentication
-│   │   └── vector-search.ts  # Vector search utilities
-│   ├── types/                # TypeScript definitions
-│   │   └── index.ts          # Type definitions
-│   └── middleware.ts         # JWT/CSRF protection
-├── tests/                    # Test files
-├── database-schema.sql       # Database schema
-├── package.json             # Dependencies
-├── jest.config.js           # Test configuration
-├── .env.example             # Environment variables template
-└── README.md               # This file
+│   │   ├── layout.tsx          # 根布局
+│   │   ├── page.tsx            # 首页
+│   │   ├── globals.css         # 全局样式
+│   │   ├── auth/               # 认证页面
+│   │   │   ├── login/          # 登录页
+│   │   │   ├── error/          # 错误页
+│   │   │   └── callback/       # OAuth 回调页
+│   │   ├── search/             # 法律检索页
+│   │   ├── qa/                 # 法律问答页
+│   │   ├── consultant/         # 法律顾问对话页
+│   │   ├── profile/            # 用户资料页
+│   │   ├── db-debug/           # 数据库调试页
+│   │   ├── debug/              # 系统调试页
+│   │   └── api/                # API 路由
+│   │       ├── auth/           # 认证相关 API
+│   │       │   ├── [provider]/     # 动态 OAuth 提供商
+│   │       │   ├── logout/         # 登出
+│   │       │   ├── callback/       # OAuth 回调
+│   │       │   │   ├── [provider]/
+│   │       │   └── __tests__/      # 认证 API 测试
+│   │       ├── search/         # 法律检索 API
+│   │       ├── qa/             # 法律问答 API
+│   │       ├── consultant/     # 法律顾问 API
+│   │       ├── profile/        # 用户资料 API
+│   │       │   └── __tests__/
+│   │       ├── db-debug/       # 数据库调试 API
+│   │       ├── debug-auth/     # 认证调试 API
+│   │       └── health/         # 健康检查 API
+│   ├── components/             # 可复用 UI 组件
+│   ├── contexts/               # React 上下文
+│   ├── lib/                    # 核心工具库
+│   │   ├── __tests__/              # 工具库测试
+│   ├── types/                  # TypeScript 类型定义
+│   └── middleware.ts           # 路由中间件
+├── tests/                  # Test files
+│   ├── setup.ts           # Test configuration
+│   ├── db.test.ts         # Database tests
+│   ├── auth-service.test.ts # Auth tests
+│   ├── gemini.test.ts     # AI service tests
+│   └── api-routes.test.ts # API tests
+├── scripts/               # Utility scripts
+│   ├── migrate.js        # Database migration
+│   ├── seed.js           # Test data seeding
+│   └── setup-env.js      # Environment setup
+├── database-schema.sql   # Database schema
+├── package.json          # Dependencies
+├── jest.config.js        # Test configuration
+├── .env.example          # Environment variables template
+└── README.md            # This file
 ```
 
 ## Quick Start Guide
@@ -90,7 +116,7 @@ webapp/
 ### Prerequisites
 
 - Node.js 18+ and npm
-- Supabase account and project
+- PostgreSQL 14+ with vector extension
 - Google AI API key (for Gemini)
 - Google OAuth app (for authentication)
 - GitHub OAuth app (for authentication)
@@ -110,27 +136,43 @@ webapp/
    
    Fill in your environment variables:
    ```env
-   # Supabase Configuration
-   NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
-   NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
-   SUPABASE_SERVICE_ROLE_KEY=your_supabase_service_role_key
+   # PostgreSQL Configuration
+   DATABASE_URL=postgresql://postgres:[password]@[host]:[port]/[database]
+   DB_HOST=your-postgres-host
+   DB_PORT=5432
+   DB_NAME=postgres
+   DB_USER=postgres
+   DB_PASSWORD=your-password
+   DB_SSL=true
    
-   # Google Gemini AI Configuration
-   GOOGLE_AI_API_KEY=your_google_ai_api_key
+   # JWT Configuration
+   JWT_SECRET=your-jwt-secret-minimum-32-characters
+   JWT_EXPIRES_IN=7d
+   REFRESH_TOKEN_EXPIRES_IN=30d
    
-   # JWT and Security
-   JWT_SECRET=your_jwt_secret_minimum_32_characters
-   CSRF_SECRET=your_csrf_secret_minimum_32_characters
+   # Google OIDC
+   GOOGLE_CLIENT_ID=your-google-client-id
+   GOOGLE_CLIENT_SECRET=your-google-client-secret
+   GOOGLE_REDIRECT_URI=http://localhost:3000/api/auth/callback/google
+   
+   # GitHub OIDC
+   GITHUB_CLIENT_ID=your-github-client-id
+   GITHUB_CLIENT_SECRET=your-github-client-secret
+   GITHUB_REDIRECT_URI=http://localhost:3000/api/auth/callback/github
+   
+   # Google Gemini AI
+   GEMINI_API_KEY=your-google-ai-api-key
    ```
 
 3. **Database Setup**
-   - Execute the SQL in `database-schema.sql` in your Supabase SQL editor
-   - Ensure the vector extension and documents table are properly configured
-   - Set up Row Level Security (RLS) policies
+   - Execute the SQL in `database-schema.sql` in your PostgreSQL database
+   - Ensure the vector extension is installed
+   - Run migrations: `npm run db:migrate`
+   - (Optional) Add test data: `npm run db:seed`
 
 4. **Authentication Setup**
-   - Configure Google OAuth in Supabase Auth settings
-   - Configure GitHub OAuth in Supabase Auth settings
+   - Configure Google OAuth in Google Cloud Console
+   - Configure GitHub OAuth in GitHub Developer Settings
    - Add your domain to allowed redirect URLs
 
 5. **Run the Application**
@@ -165,11 +207,11 @@ npm run type-check   # TypeScript type checking
 
 #### Authentication Issues
 - **Problem**: OAuth redirect fails
-- **Solution**: Check redirect URLs in Supabase Auth settings match your domain
+- **Solution**: Check redirect URLs in OAuth provider settings match your domain
 
 #### Database Connection Issues
-- **Problem**: Cannot connect to Supabase
-- **Solution**: Verify environment variables and check Supabase project status
+- **Problem**: Cannot connect to PostgreSQL
+- **Solution**: Verify environment variables and check PostgreSQL server status
 
 #### AI API Issues
 - **Problem**: Gemini API calls fail
@@ -207,45 +249,30 @@ npm run type-check   # TypeScript type checking
 ## API Endpoints
 
 ### Authentication
-- `POST /api/auth/login` - Initiate OAuth login
-- `GET /api/auth/callback` - Handle OAuth callback
+- `POST /api/auth/[provider]` - Initiate OAuth login
+- `GET /api/auth/callback/[provider]` - Handle OAuth callback
 - `POST /api/auth/logout` - User logout
-- `GET /api/auth/csrf` - Get CSRF token
+
+### User profile
+- `POST /api/profile` - Get user profile
+
 
 ### Legal Search
 - `POST /api/search` - Perform legal document search
-- `GET /api/search/history` - Get user search history
-- `GET /api/search/suggestions` - Get search suggestions
 
 ### Legal Q&A
 - `POST /api/qa` - Submit question and get AI answer
-- `GET /api/qa/history` - Get user Q&A history
 
 ### Legal Consultant
-- `POST /api/consultant/conversations` - Create new conversation
-- `GET /api/consultant/conversations` - Get user conversations
-- `POST /api/consultant/chat` - Send message in conversation
-- `GET /api/consultant/conversations/:id/messages` - Get conversation messages
-
-### User Management
-- `GET /api/user/profile` - Get user profile
-- `PUT /api/user/profile` - Update user profile
-- `GET /api/user/credits` - Get user token credits
-- `GET /api/user/usage` - Get user token usage statistics
-
-### Admin
-- `GET /api/admin/users` - List all users
-- `PUT /api/admin/users/:id/role` - Update user role
-- `GET /api/admin/statistics` - Get system statistics
-- `GET /api/admin/logs` - Get admin action logs
+- `POST /api/consultant` - Create new conversation
 
 ## Security Features
 
 ### Authentication & Authorization
-- OAuth 2.0 with Google and GitHub
+- OIDC/OAuth2 with Google and GitHub
 - JWT tokens for API authentication
-- CSRF protection for state-changing operations
-- Row Level Security (RLS) in database
+- HTTP-only cookies for session management
+- Role-based access control
 
 ### Data Protection
 - Sensitive data stored server-side only
@@ -254,9 +281,8 @@ npm run type-check   # TypeScript type checking
 - Rate limiting on API endpoints
 
 ### Privacy
-- User data isolation with RLS policies
+- User data isolation with database policies
 - Secure session management
-- Audit logging for admin actions
 
 ## Development Guidelines
 
@@ -282,7 +308,7 @@ npm run type-check   # TypeScript type checking
 
 ### Environment Setup
 1. Set up production environment variables
-2. Configure Supabase for production
+2. Configure PostgreSQL for production
 3. Set up domain and SSL certificates
 4. Configure OAuth providers for production URLs
 
