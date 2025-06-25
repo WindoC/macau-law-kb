@@ -37,9 +37,10 @@ export async function POST(request: NextRequest) {
  * GET /api/auth/logout - Clear cookies and redirect to home
  */
 export async function GET(request: NextRequest) {
+  const base_url = process.env.NEXTAUTH_URL || 'http://localhost:3000';
   try {
     // Create redirect response to home page
-    const response = NextResponse.redirect(new URL('/', request.url));
+    const response = NextResponse.redirect(new URL(base_url+'/', request.url));
     
     // Clear authentication cookies
     SessionManager.clearAuthCookies(response);
@@ -51,7 +52,7 @@ export async function GET(request: NextRequest) {
     console.error('Logout error:', error);
     
     // Still redirect to home even if there's an error
-    const response = NextResponse.redirect(new URL('/', request.url));
+    const response = NextResponse.redirect(new URL(base_url+'/', request.url));
     SessionManager.clearAuthCookies(response);
     
     return response;
