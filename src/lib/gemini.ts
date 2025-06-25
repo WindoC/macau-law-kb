@@ -280,7 +280,7 @@ export async function generateConsultantChatResponse(
   try {
     const modelName = useProModel ? MODELS.PRO : MODELS.FLASH;
     
-    console.log(`Generating consultant response with ${contents.length} messages in conversation history`);
+    // console.log(`Generating consultant response with ${contents.length} messages in conversation history`);
 
     const response = await ai.models.generateContent({
       model: modelName,
