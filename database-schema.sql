@@ -15,16 +15,6 @@ CREATE TABLE IF NOT EXISTS users (
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- User sessions for JWT token management
-CREATE TABLE IF NOT EXISTS user_sessions (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    access_token TEXT NOT NULL,
-    refresh_token TEXT NOT NULL,
-    expires_at TIMESTAMPTZ NOT NULL,
-    created_at TIMESTAMPTZ DEFAULT NOW()
-);
-
 -- User credits for token management
 CREATE TABLE IF NOT EXISTS user_credits (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -91,31 +81,9 @@ CREATE TABLE IF NOT EXISTS consultant_messages (
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- System settings for admin configuration
-CREATE TABLE IF NOT EXISTS system_settings (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    setting_key VARCHAR(100) UNIQUE NOT NULL,
-    setting_value TEXT NOT NULL,
-    description TEXT,
-    updated_by UUID REFERENCES users(id),
-    updated_at TIMESTAMPTZ DEFAULT NOW()
-);
-
--- Admin logs for tracking admin actions
-CREATE TABLE IF NOT EXISTS admin_logs (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    admin_id UUID NOT NULL REFERENCES users(id),
-    action VARCHAR(100) NOT NULL,
-    target_user_id UUID REFERENCES users(id),
-    details JSONB,
-    created_at TIMESTAMPTZ DEFAULT NOW()
-);
-
 -- Indexes for better performance
 CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
 CREATE INDEX IF NOT EXISTS idx_users_role ON users(role);
-CREATE INDEX IF NOT EXISTS idx_user_sessions_user_id ON user_sessions(user_id);
-CREATE INDEX IF NOT EXISTS idx_user_sessions_expires_at ON user_sessions(expires_at);
 CREATE INDEX IF NOT EXISTS idx_user_credits_user_id ON user_credits(user_id);
 CREATE INDEX IF NOT EXISTS idx_token_usage_user_id ON token_usage(user_id);
 CREATE INDEX IF NOT EXISTS idx_token_usage_created_at ON token_usage(created_at);
@@ -126,84 +94,15 @@ CREATE INDEX IF NOT EXISTS idx_qa_history_created_at ON qa_history(created_at);
 CREATE INDEX IF NOT EXISTS idx_consultant_conversations_user_id ON consultant_conversations(user_id);
 CREATE INDEX IF NOT EXISTS idx_consultant_messages_conversation_id ON consultant_messages(conversation_id);
 CREATE INDEX IF NOT EXISTS idx_consultant_messages_created_at ON consultant_messages(created_at);
-CREATE INDEX IF NOT EXISTS idx_admin_logs_admin_id ON admin_logs(admin_id);
-CREATE INDEX IF NOT EXISTS idx_admin_logs_created_at ON admin_logs(created_at);
-
--- RPC function to deduct tokens from user account
-CREATE OR REPLACE FUNCTION deduct_user_tokens(user_id UUID, tokens_to_deduct INTEGER)
-RETURNS VOID AS $$
-BEGIN
-    UPDATE user_credits 
-    SET 
-        used_tokens = used_tokens + tokens_to_deduct,
-        remaining_tokens = remaining_tokens - tokens_to_deduct,
-        updated_at = NOW()
-    WHERE user_credits.user_id = deduct_user_tokens.user_id;
-    
-    IF NOT FOUND THEN
-        RAISE EXCEPTION 'User credits not found for user_id: %', user_id;
-    END IF;
-END;
-$$ LANGUAGE plpgsql;
-
--- RPC function to reset user tokens (monthly reset)
-CREATE OR REPLACE FUNCTION reset_user_tokens(user_id UUID, new_total_tokens INTEGER)
-RETURNS VOID AS $$
-BEGIN
-    UPDATE user_credits 
-    SET 
-        total_tokens = new_total_tokens,
-        used_tokens = 0,
-        remaining_tokens = new_total_tokens,
-        last_reset = NOW(),
-        updated_at = NOW()
-    WHERE user_credits.user_id = reset_user_tokens.user_id;
-    
-    IF NOT FOUND THEN
-        RAISE EXCEPTION 'User credits not found for user_id: %', user_id;
-    END IF;
-END;
-$$ LANGUAGE plpgsql;
-
--- RPC function to get user statistics
-CREATE OR REPLACE FUNCTION get_user_stats(user_id UUID)
-RETURNS TABLE (
-    total_searches BIGINT,
-    total_qa BIGINT,
-    total_conversations BIGINT,
-    total_tokens_used BIGINT,
-    current_credits INTEGER
-) AS $$
-BEGIN
-    RETURN QUERY
-    SELECT 
-        (SELECT COUNT(*) FROM search_history WHERE search_history.user_id = get_user_stats.user_id),
-        (SELECT COUNT(*) FROM qa_history WHERE qa_history.user_id = get_user_stats.user_id),
-        (SELECT COUNT(*) FROM consultant_conversations WHERE consultant_conversations.user_id = get_user_stats.user_id),
-        (SELECT COALESCE(SUM(tokens_used), 0) FROM token_usage WHERE token_usage.user_id = get_user_stats.user_id),
-        (SELECT remaining_tokens FROM user_credits WHERE user_credits.user_id = get_user_stats.user_id);
-END;
-$$ LANGUAGE plpgsql;
-
--- Insert default system settings
-INSERT INTO system_settings (setting_key, setting_value, description) VALUES
-    ('default_free_tokens', '1000', 'Default number of free tokens for new users'),
-    ('token_price_usd', '0.01', 'Price per 1000 tokens in USD'),
-    ('pro_model_multiplier', '10', 'Cost multiplier for Pro model usage'),
-    ('max_search_results', '20', 'Maximum number of search results to return'),
-    ('max_conversation_history', '50', 'Maximum number of messages to keep in conversation history')
-ON CONFLICT (setting_key) DO NOTHING;
 
 -- Row Level Security (RLS) policies
 ALTER TABLE users ENABLE ROW LEVEL SECURITY;
-ALTER TABLE user_sessions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE user_credits ENABLE ROW LEVEL SECURITY;
 ALTER TABLE token_usage ENABLE ROW LEVEL SECURITY;
 ALTER TABLE search_history ENABLE ROW LEVEL SECURITY;
 ALTER TABLE qa_history ENABLE ROW LEVEL SECURITY;
 ALTER TABLE consultant_conversations ENABLE ROW LEVEL SECURITY;
 ALTER TABLE consultant_messages ENABLE ROW LEVEL SECURITY;
-ALTER TABLE admin_logs ENABLE ROW LEVEL SECURITY;
 
 -- RLS Policies for users table
 CREATE POLICY "Users can view own profile" ON users

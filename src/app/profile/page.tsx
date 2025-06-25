@@ -3,24 +3,21 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Navigation from '@/components/Navigation';
-import { getCurrentUser, getSessionToken } from '@/lib/auth-client';
-import { supabase } from '@/lib/supabase'
+import { getCurrentUser, logout } from '@/lib/auth-client';
 
-interface UserProfile {
-  id: string;
-  email: string;
-  name: string;
-  role: 'admin' | 'free' | 'pay' | 'vip';
-  avatar_url?: string;
-  created_at: string;
-}
-
-interface UserCredits {
-  total_tokens: number;
-  used_tokens: number;
-  remaining_tokens: number;
-  monthly_limit: number;
-  reset_date: string;
+interface User {
+  id: string
+  email: string
+  name?: string
+  avatar_url?: string
+  provider: string
+  role: string
+  created_at: string
+  credits: {
+    remaining_tokens: number
+    total_tokens: number
+    used_tokens: number
+  }
 }
 
 /**
@@ -28,98 +25,29 @@ interface UserCredits {
  * 顯示用戶信息、使用統計和帳戶管理
  */
 export default function ProfilePage() {
-  const [profile, setProfile] = useState<UserProfile | null>(null);
-  const [credits, setCredits] = useState<UserCredits | null>(null);
   const [loading, setLoading] = useState(true);
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const router = useRouter();
+  const [user, setUser] = useState<User | null>(null)
 
   useEffect(() => {
-    loadUserData();
+    const fetchUser = async () => {
+      const currentUser = await getCurrentUser();
+      setUser(currentUser);
+      setLoading(false);
+    };
+    fetchUser();
   }, []);
 
-  const loadUserData = async () => {
-    try {
-      const user = await getCurrentUser();
-      
-      if (!user) {
-        router.push('/');
-        return;
-      }
-
-      // Get session token for API request
-      const token = getSessionToken();
-      if (!token) {
-        throw new Error('No session token found');
-      }
-
-      // Load user profile
-      const profileResponse = await fetch('/api/profile', {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-      });
-
-      if (profileResponse.ok) {
-        const profileData = await profileResponse.json();
-        if (profileData.success && profileData.user) {
-          setProfile({
-            id: profileData.user.id,
-            email: profileData.user.email,
-            name: profileData.user.name || 'Unknown User',
-            role: profileData.user.role,
-            avatar_url: profileData.user.avatar_url,
-            created_at: profileData.user.created_at,
-          });
-          setCredits({
-            total_tokens: profileData.user.total_tokens || 1000,
-            used_tokens: profileData.user.used_tokens || 0,
-            remaining_tokens: profileData.user.remaining_tokens || 1000,
-            monthly_limit: profileData.user.total_tokens || 1000,
-            reset_date: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
-          });
-        }
-      } else {
-        // Fallback to user data from auth
-        setProfile({
-          id: user.id,
-          email: user.email || 'unknown@example.com',
-          name: user.user_metadata?.full_name || user.user_metadata?.name || 'Unknown User',
-          role: 'free', // Default role
-          avatar_url: user.user_metadata?.avatar_url,
-          created_at: user.created_at || new Date().toISOString(),
-        });
-
-        // Default credits for new users
-        setCredits({
-          total_tokens: 1000,
-          used_tokens: 0,
-          remaining_tokens: 1000,
-          monthly_limit: 1000,
-          reset_date: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
-        });
-      }
-    } catch (error) {
-      console.error('載入用戶資料錯誤:', error);
-      router.push('/');
-    } finally {
-      setLoading(false);
-    }
-  };
-
   const handleLogout = async () => {
-    try {
-      const { error } = await supabase.auth.signOut()
-      router.push('/');
-      if (error) {
-        console.error('Logout error:', error)
-        alert('登出失敗，請稍後再試')
-      }
-    } catch (error) {
-      console.error('Logout error:', error)
+    const success = await logout();
+    if (success) {
+      setUser(null)
+      router.push('/auth/login')
+    } else {
+      console.error('Logout failed')
       alert('登出失敗，請稍後再試')
+      router.push('/auth/error')
     }
   }
 
@@ -136,7 +64,7 @@ export default function ProfilePage() {
   const getRoleDescription = (role: string) => {
     const descriptions = {
       admin: '完全訪問所有功能和管理控制',
-      free: '登記免費送 100,000 Token，可使用搜索和問答功能，如要使用諮詢請按頁底的"升級帳戶"',
+      free: '登記免費送 100,000代幣，可使用搜索和問答功能，如要使用諮詢請按頁底的"升級帳戶"',
       pay: '無限制訪問，按使用量付費',
       vip: '高級訪問，包含進階AI模型',
     };
@@ -194,7 +122,7 @@ export default function ProfilePage() {
                 </h5>
               </div>
               <div className="card-body">
-                {profile && (
+                {user && (
                   <div className="row">
                     <div className="col-md">
                       <div className="mb-3">
@@ -202,7 +130,7 @@ export default function ProfilePage() {
                         <input 
                           type="email" 
                           className="form-control" 
-                          value={profile.email} 
+                          value={user.email} 
                           readOnly 
                         />
                       </div>
@@ -211,32 +139,32 @@ export default function ProfilePage() {
                         <input 
                           type="text" 
                           className="form-control" 
-                          value={profile.name} 
+                          value={user.name} 
                           readOnly 
                         />
                       </div>
                       <div className="mb-3">
                         <label className="form-label">帳戶類型</label>
                         <div>
-                          <span className={getRoleBadge(profile.role)}>
-                            {profile.role.toUpperCase()}
+                          <span className={getRoleBadge(user.role)}>
+                            {user.role.toUpperCase()}
                           </span>
                           <p className="text-muted mt-1 mb-0">
-                            {getRoleDescription(profile.role)}
+                            {getRoleDescription(user.role)}
                           </p>
                         </div>
                       </div>
                       <div className="mb-3">
                         <label className="form-label">會員開始日期</label>
                         <p className="form-control-plaintext">
-                          {new Date(profile.created_at).toLocaleDateString('zh-TW')}
+                          {new Date(user.created_at).toLocaleDateString('zh-TW')}
                         </p>
                       </div>
                     </div>
                     {/* <div className="col-md-4 text-center">
                       <div className="mb-3">
                         <img
-                          src={profile.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(profile.name)}&background=0d6efd&color=fff&size=120`}
+                          src={user.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(user.name)}&background=0d6efd&color=fff&size=120`}
                           alt="個人頭像"
                           className="rounded-circle border"
                           width="120"
@@ -259,35 +187,35 @@ export default function ProfilePage() {
               <div className="card-header bg-success text-white">
                 <h5 className="mb-0">
                   <i className="fas fa-coins me-2"></i>
-                  Token 使用情況
+                  代幣使用情況
                 </h5>
               </div>
               <div className="card-body">
-                {credits && (
+                {user && user.credits && (
                   <div>
                     <div className="row mb-3">
                       <div className="col-md-6">
                         <div className="text-center p-3 bg-primary text-white rounded">
-                          <h4>{credits.remaining_tokens.toLocaleString()}</h4>
-                          <small>剩餘Token</small>
+                          <h4>{user.credits.remaining_tokens.toLocaleString()}</h4>
+                          <small>剩餘代幣</small>
                         </div>
                       </div>
                       <div className="col-md-6">
                         <div className="text-center p-3 bg-warning text-dark rounded">
-                          <h4>{credits.used_tokens.toLocaleString()}</h4>
+                          <h4>{user.credits.used_tokens.toLocaleString()}</h4>
                           <small>已使用</small>
                         </div>
                       </div>
                       {/* <div className="col-md-4">
                         <div className="text-center p-3 bg-warning text-dark rounded">
-                          <h4>{credits.monthly_limit.toLocaleString()}</h4>
+                          <h4>{user.credits.monthly_limit?.toLocaleString()}</h4>
                           <small>免費Token</small>
                         </div>
                       </div> */}
                       {/* <div className="col-md-3">
                         <div className="text-center p-3 bg-warning text-dark rounded">
                           <h4>
-                            {Math.round((credits.used_tokens / credits.monthly_limit) * 100)}%
+                            {user.credits.monthly_limit ? Math.round((user.credits.used_tokens / user.credits.monthly_limit) * 100) : 0}%
                           </h4>
                           <small>使用率</small>
                         </div>
@@ -300,19 +228,19 @@ export default function ProfilePage() {
                         <div
                           className="progress-bar bg-success"
                           role="progressbar"
-                          style={{ width: `${(credits.used_tokens / credits.monthly_limit) * 100}%` }}
-                          aria-valuenow={credits.used_tokens}
+                          style={{ width: `${user.credits.monthly_limit ? (user.credits.used_tokens / user.credits.monthly_limit) * 100 : 0}%` }}
+                          aria-valuenow={user.credits.used_tokens}
                           aria-valuemin={0}
-                          aria-valuemax={credits.monthly_limit}
+                          aria-valuemax={user.credits.monthly_limit || 0}
                         >
-                          {Math.round((credits.used_tokens / credits.monthly_limit) * 100)}%
+                          {user.credits.monthly_limit ? Math.round((user.credits.used_tokens / user.credits.monthly_limit) * 100) : 0}%
                         </div>
                       </div>
                     </div> */}
 
                     {/* <div className="alert alert-info">
                       <i className="fas fa-calendar-alt me-2"></i>
-                      <strong>下次重置:</strong> {new Date(credits.reset_date).toLocaleDateString('zh-TW')}
+                      <strong>下次重置:</strong> {user.credits.reset_date ? new Date(user.credits.reset_date).toLocaleDateString('zh-TW') : ''}
                     </div> */}
                   </div>
                 )}
@@ -354,12 +282,12 @@ export default function ProfilePage() {
                     </div>
                   </div>
                   <div className="col-md-4">
-                    <div className={`card h-100 ${profile?.role === 'free' ? 'border-secondary' : 'border-success'}`}>
+                    <div className={`card h-100 ${user?.role === 'free' ? 'border-secondary' : 'border-success'}`}>
                       <div className="card-body text-center">
-                        <i className={`fas fa-comments fa-2x mb-2 ${profile?.role === 'free' ? 'text-secondary' : 'text-success'}`}></i>
+                        <i className={`fas fa-comments fa-2x mb-2 ${user?.role === 'free' ? 'text-secondary' : 'text-success'}`}></i>
                         <h6 className="card-title">法律諮詢</h6>
-                        <span className={`badge ${profile?.role === 'free' ? 'bg-secondary' : 'bg-success'}`}>
-                          {profile?.role === 'free' ? '需要升級' : '可使用'}
+                        <span className={`badge ${user?.role === 'free' ? 'bg-secondary' : 'bg-success'}`}>
+                          {user?.role === 'free' ? '需要升級' : '可使用'}
                         </span>
                         <p className="card-text mt-2 small">
                           與AI法律顧問對話

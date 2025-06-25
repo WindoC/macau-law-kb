@@ -2,48 +2,64 @@
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
-import { supabase } from '@/lib/supabase'
-import type { User } from '@supabase/supabase-js'
 import { useRouter } from 'next/navigation';
+import { getCurrentUser, logout } from '@/lib/auth-client';
+
+interface User {
+  id: string
+  email: string
+  name?: string
+  avatar_url?: string
+  provider: string
+  credits: {
+    remaining_tokens: number
+  }
+}
+
+interface NavigationProps {
+  remainingTokens?: number;
+}
 
 /**
  * Navigation component for authenticated users
  * Provides consistent header across all pages
  */
-export default function Navigation() {
+export default function Navigation({ remainingTokens }: NavigationProps) {
   const [user, setUser] = useState<User | null>(null)
   const [loading, setLoading] = useState(true)
   const router = useRouter();
 
   useEffect(() => {
-    // Get initial session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setUser(session?.user ?? null)
-      setLoading(false)
-    })
-
-    // Listen for auth changes
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user ?? null)
-      setLoading(false)
-    })
-
-    return () => subscription.unsubscribe()
+    const fetchUser = async () => {
+      const currentUser = await getCurrentUser();
+      setUser(currentUser);
+      setLoading(false);
+    };
+    fetchUser();
   }, [])
 
+  // 当remainingTokens更新时更新user状态
+  useEffect(() => {
+    if (remainingTokens !== undefined && user) {
+      setUser({
+        ...user,
+        credits: {
+          ...user.credits,
+          remaining_tokens: remainingTokens
+        }
+      });
+    }
+  }, [remainingTokens]);
+
   const handleLogout = async () => {
-    try {
-      const { error } = await supabase.auth.signOut();
-      router.push('/');
-      if (error) {
-        console.error('Logout error:', error)
-        alert('登出失敗，請稍後再試')
-      }
-    } catch (error) {
-      console.error('Logout error:', error)
+    const success = await logout();
+    if (success) {
+      setUser(null)
+      router.push('/auth/login')
+    } else {
+      console.error('Logout failed')
       alert('登出失敗，請稍後再試')
+      router.push('/auth/error')
     }
   }
 
@@ -123,9 +139,9 @@ export default function Navigation() {
                 data-bs-toggle="dropdown"
               >
                 <i className="fas fa-user me-1"></i>
-                {user.user_metadata?.name || user.email}
+                {user.name || user.email} ( 剩餘代幣: {user.credits.remaining_tokens.toLocaleString()} )
               </a>
-              <ul className="dropdown-menu">
+              <ul className="dropdown-menu dropdown-menu-end">
                 <li><a className="dropdown-item" href="/profile">
                   <i className="fas fa-user-cog me-2"></i>個人資料
                 </a></li>

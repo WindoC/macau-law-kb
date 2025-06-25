@@ -26,6 +26,7 @@ export default function ConsultantPage() {
   const [currentStep, setCurrentStep] = useState('');
   const [streamingResponse, setStreamingResponse] = useState('');
   const chatMessagesRef = useRef<HTMLDivElement>(null);
+  const [remainingTokens, setRemainingTokens] = useState<number | undefined>(undefined);
 
   useEffect(() => {
     if (chatMessagesRef.current) {
@@ -54,11 +55,11 @@ export default function ConsultantPage() {
     setStreamingResponse('');
 
     try {
-      // Get session token for authentication
-      const { getSessionToken } = await import('@/lib/auth-client');
-      const token = await getSessionToken();
+      // Check authentication
+      const { isAuthenticated } = await import('@/lib/auth-client');
+      const authenticated = await isAuthenticated();
       
-      if (!token) {
+      if (!authenticated) {
         setError('請先登入');
         setLoading(false);
         return;
@@ -75,8 +76,8 @@ export default function ConsultantPage() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
         },
+        credentials: 'include',
         body: JSON.stringify(requestBody),
       });
 
@@ -126,6 +127,9 @@ export default function ConsultantPage() {
                   case 'completion':
                     if (data.content.conversationId && !conversationId) {
                       setConversationId(data.content.conversationId);
+                    }
+                    if (data.content.remaining_tokens !== undefined) {
+                      setRemainingTokens(data.content.remaining_tokens);
                     }
                     break;
                   case 'error':
@@ -189,7 +193,7 @@ export default function ConsultantPage() {
 
   return (
     <div className="d-flex flex-column" style={{height: '100vh'}}>
-      <Navigation />
+      <Navigation remainingTokens={remainingTokens} />
       <div className="container mt-4 flex-grow-1 d-flex flex-column">
         <div className="row flex-grow-1">
           <div className="col-12 d-flex flex-column">

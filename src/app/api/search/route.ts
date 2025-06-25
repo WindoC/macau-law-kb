@@ -1,17 +1,14 @@
 import { NextRequest } from 'next/server';
-import {
-  authenticateRequest,
-  validateMethod,
-  logAPIUsage
-} from '@/lib/auth-server';
+import { SessionManager } from '@/lib/session';
 import {
   hasFeatureAccess,
   hasTokens,
   createErrorResponse,
-  createSuccessResponse
+  createSuccessResponse,
+  validateMethod
 } from '@/lib/auth-client';
 import { generateEmbedding, generateSearchKeywords, countTokens } from '@/lib/gemini';
-import { searchDocuments, saveSearchHistory, updateTokenUsage } from '@/lib/database';
+import { searchDocuments, saveSearchHistory, updateTokenUsage } from '@/lib/database-new';
 
 /**
  * Legal Search API endpoint
@@ -20,17 +17,28 @@ import { searchDocuments, saveSearchHistory, updateTokenUsage } from '@/lib/data
 export async function POST(request: NextRequest) {
   try {
     // Validate request method
-    const validateMethodResult = validateMethod(request, ['POST']);
-    if (!validateMethodResult) {
+    if (!validateMethod(request, ['POST'])) {
       return createErrorResponse('不允許使用此方法', 405);
     }
 
     // Authenticate user
-    const authResult = await authenticateRequest(request);
-    if (!authResult.success || !authResult.user) {
-      return createErrorResponse(authResult.error || '未經授權', 401);
+    const session = await SessionManager.getSession(request);
+    if (!session) {
+      return createErrorResponse('未經授權', 401);
     }
-    const user = authResult.user;
+
+    // Get user profile to check permissions and tokens
+    const profileResponse = await fetch(`${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/api/profile`, {
+      headers: {
+        'Cookie': request.headers.get('Cookie') || ''
+      }
+    });
+
+    if (!profileResponse.ok) {
+      return createErrorResponse('無法獲取用戶資料', 401);
+    }
+
+    const user = await profileResponse.json();
 
     // Check feature access
     const hasFeatureAccessResult = hasFeatureAccess(user, 'search');
@@ -55,17 +63,17 @@ export async function POST(request: NextRequest) {
 
     // Check token availability
     const hasTokensResult = hasTokens(user, estimatedTokens);
-    console.log('hasTokens input:', user, estimatedTokens, 'output:', hasTokensResult);
+    // console.log('hasTokens input:', user, estimatedTokens, 'output:', hasTokensResult);
     if (!hasTokensResult) {
       return createErrorResponse('代幣不足', 402);
     }
 
     try {
       // Step 1: Generate search keywords using AI
-      console.log('Generating search keywords...');
+      // console.log('Generating search keywords...');
       const keywordsResult = await generateSearchKeywords(query);
       const keywords = keywordsResult.keywords;
-      console.log('generateSearchKeywords input:', query, 'output:', keywords);
+      // console.log('generateSearchKeywords input:', query, 'output:', keywords);
       
       // Step 2: Generate embedding for the keywords
       // console.log('Generating embedding for the keywords...');
@@ -89,20 +97,11 @@ export async function POST(request: NextRequest) {
       const actualTokens = (keywordsResult.tokenCount ?? 0) + (keywordsEmbeddingResult.tokenCount ?? 0);
       
       // Step 5: Update user token usage
-      // console.log('Updating user token usage...');
-      await updateTokenUsage(user.id, actualTokens);
-      // console.log('updateTokenUsage input:', user.id, actualTokens);
+      const remaining_tokens = await updateTokenUsage(session, 'search', actualTokens);
       
       // Step 6: Save search history
-      // console.log('Saving search history...');
       const documentIds = searchResults.map(result => result.id);
-      await saveSearchHistory(user.id, query, documentIds, actualTokens);
-      // console.log('saveSearchHistory input:', user.id, query, documentIds);
-      
-      // Step 7: Log API usage
-      // console.log('Logging API usage...');
-      await logAPIUsage(user.id, 'search', actualTokens);
-      // console.log('logAPIUsage input:', user.id, 'search', actualTokens);
+      await saveSearchHistory(session, query, documentIds, actualTokens);
 
       // Format response
       const response = {
@@ -117,7 +116,7 @@ export async function POST(request: NextRequest) {
           // title: result.metadata?.law_id + " - " + result.metadata?.title || `文件 #${result.id}`
         })),
         tokens_used: actualTokens,
-        remaining_tokens: (user.remaining_tokens || 0) - actualTokens
+        remaining_tokens: remaining_tokens || 0
       };
 
       return createSuccessResponse(response);
