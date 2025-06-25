@@ -61,6 +61,8 @@ export async function middleware(request: NextRequest) {
     // TEMPORARY: Skip authentication in middleware due to Edge Runtime limitations
     // JWT verification requires Node.js crypto module which isn't available in Edge Runtime
     // TODO: Implement Edge-compatible authentication or move to API routes
+
+    const base_url = process.env.NEXTAUTH_URL || 'http://localhost:3000';
     
     const accessToken = request.cookies.get('access_token')?.value;
     
@@ -77,7 +79,7 @@ export async function middleware(request: NextRequest) {
         );
       } else {
         // Redirect to login for page routes
-        const loginUrl = new URL('/auth/login', request.url);
+        const loginUrl = new URL(base_url+'/auth/login', request.url);
         loginUrl.searchParams.set('redirect', pathname);
         return NextResponse.redirect(loginUrl);
       }
