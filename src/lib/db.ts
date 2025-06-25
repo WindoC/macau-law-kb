@@ -19,7 +19,7 @@ class DatabaseManager {
   
   constructor() {
     this.search_path = process.env.DB_SEARCH_PATH || 'public, extensions';
-    console.log(`Using search_path: ${this.search_path}`);
+    // console.log(`Using search_path: ${this.search_path}`);
     // Use DATABASE_URL if available, otherwise fall back to individual variables
     if (process.env.DATABASE_URL) {
       this.pool = new Pool({

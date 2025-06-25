@@ -342,7 +342,7 @@ export async function updateTokenUsage(
 
     remaining_tokens = updateResult.rows[0]?.remaining_tokens;
 
-    console.log(`User ${session.userId} used ${tokensUsed} tokens for ${feature}. Remaining tokens: ${remaining_tokens}`);
+    // console.log(`User ${session.userId} used ${tokensUsed} tokens for ${feature}. Remaining tokens: ${remaining_tokens}`);
     const insertResult = await client.query<{ id: string }>(
       `INSERT INTO token_usage
        (user_id, feature_type, tokens_used, created_at)
