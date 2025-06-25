@@ -63,17 +63,17 @@ export async function POST(request: NextRequest) {
 
     // Check token availability
     const hasTokensResult = hasTokens(user, estimatedTokens);
-    console.log('hasTokens input:', user, estimatedTokens, 'output:', hasTokensResult);
+    // console.log('hasTokens input:', user, estimatedTokens, 'output:', hasTokensResult);
     if (!hasTokensResult) {
       return createErrorResponse('代幣不足', 402);
     }
 
     try {
       // Step 1: Generate search keywords using AI
-      console.log('Generating search keywords...');
+      // console.log('Generating search keywords...');
       const keywordsResult = await generateSearchKeywords(query);
       const keywords = keywordsResult.keywords;
-      console.log('generateSearchKeywords input:', query, 'output:', keywords);
+      // console.log('generateSearchKeywords input:', query, 'output:', keywords);
       
       // Step 2: Generate embedding for the keywords
       // console.log('Generating embedding for the keywords...');
