@@ -8,9 +8,9 @@ import { AuthProvider } from '@/contexts/AuthContext'
 const inter = Inter({ subsets: ['latin'] })
 
 export const metadata: Metadata = {
-  title: 'Macau Law Knowledge Base',
-  description: 'AI-powered legal search, Q&A, and consultation for Macau law',
-  keywords: ['Macau law', 'legal search', 'AI consultation', 'legal Q&A'],
+  title: '澳門法律知識庫',
+  description: 'AI 驅動的澳門法律搜尋、問答與諮詢服務',
+  keywords: ['澳門法律', '法律搜尋', '法律問答', 'AI諮詢'],
   authors: [{ name: 'Antonio Cheong' }],
   icons: {
     icon: [
