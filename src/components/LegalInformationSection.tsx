@@ -100,8 +100,8 @@ export default function LegalInformationSection() {
                     <p>本平台仰賴第三方技術服務如：</p>
                     <ul>
                       <li><strong>Google Gemini AI</strong>（AI 回應生成）</li>
-                      <li><strong>Supabase</strong>（資料儲存）</li>
-                      <li><strong>Cloudflare CAPTCHA</strong>（濫用防護）等</li>
+                      <li><strong>Supabase</strong>（雲端資料儲存服務）</li>
+                      <li><strong>OAuth 認證服務</strong>（身分驗證）等</li>
                     </ul>
                     <p>我們對上述第三方服務之可用性、安全性與正確性不提供保證。</p>
                   </div>
@@ -140,7 +140,7 @@ export default function LegalInformationSection() {
                     <h5>技術資料：</h5>
                     <ul>
                       <li>使用者 IP 位址、請求時間與來源裝置識別碼；</li>
-                      <li>CAPTCHA 驗證結果與使用行為指標。</li>
+                      <li>系統使用行為指標與存取記錄。</li>
                     </ul>
 
                     <h4>2. 資料使用目的</h4>
@@ -154,9 +154,9 @@ export default function LegalInformationSection() {
 
                     <h4>3. 數據儲存與安全</h4>
                     <ul>
-                      <li>所有資料儲存於 Supabase，並採用 <strong>行級存取控制（RLS）</strong> 保護每位用戶資料；</li>
+                      <li>所有資料儲存於 Supabase 雲端服務，透過 PostgreSQL 進行資料管理；</li>
                       <li>僅授權的管理人員可檢視使用記錄；</li>
-                      <li>使用 JWT 驗證與 CSRF Token 提供 API 安全防護。</li>
+                      <li>使用 JWT 驗證與安全標頭提供 API 安全防護。</li>
                     </ul>
 
                     <h4>4. 第三方資料處理</h4>
