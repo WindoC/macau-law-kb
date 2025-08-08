@@ -1,9 +1,8 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Container, Row, Col, Card, Button, Alert, Modal } from 'react-bootstrap';
+import { Container, Row, Col, Card, Button, Modal } from 'react-bootstrap';
 import { useAuth } from '@/contexts/AuthContext';
-import { validateCaptchaToken, CAPTCHA_ERRORS } from '@/lib/captcha';
 import LegalInformationSection from '@/components/LegalInformationSection';
 import { ContactModal, ContactButton } from '@/components/ContactModal';
 import LoginForm from '@/components/LoginForm';
@@ -14,8 +13,6 @@ import LoginForm from '@/components/LoginForm';
  */
 export default function LoginPage() {
   const { login, loading } = useAuth();
-  const [captchaToken, setCaptchaToken] = useState<string | null>(null);
-  const [captchaError, setCaptchaError] = useState<string | null>(null);
   const [loginLoading, setLoginLoading] = useState(false);
   const [showLegalInfo, setShowLegalInfo] = useState(false);
   const [showContactModal, setShowContactModal] = useState(false);
@@ -24,48 +21,16 @@ export default function LoginPage() {
    * Handle OAuth login with provider
    */
   const handleLogin = async (provider: 'google' | 'github') => {
-    // Validate CAPTCHA token before login
-    if (!validateCaptchaToken(captchaToken)) {
-      setCaptchaError(CAPTCHA_ERRORS.MISSING_TOKEN);
-      return;
-    }
-
     setLoginLoading(true);
-    setCaptchaError(null);
 
     try {
       // Use auth context login method
       login(provider);
     } catch (error) {
       console.error('Login error:', error);
-      setCaptchaToken(null); // Reset CAPTCHA on error
       setLoginLoading(false);
-      setCaptchaError('登入失敗，請稍後再試');
+      alert('登入失敗，請稍後再試');
     }
-  };
-
-  /**
-   * Handle CAPTCHA verification success
-   */
-  const handleCaptchaVerify = (token: string) => {
-    setCaptchaToken(token);
-    setCaptchaError(null);
-  };
-
-  /**
-   * Handle CAPTCHA verification error
-   */
-  const handleCaptchaError = () => {
-    setCaptchaToken(null);
-    setCaptchaError(CAPTCHA_ERRORS.VERIFICATION_FAILED);
-  };
-
-  /**
-   * Handle CAPTCHA token expiration
-   */
-  const handleCaptchaExpire = () => {
-    setCaptchaToken(null);
-    setCaptchaError(CAPTCHA_ERRORS.EXPIRED_TOKEN);
   };
 
   if (loading) {
@@ -90,22 +55,10 @@ export default function LoginPage() {
               </Card.Header>
               
               <Card.Body className="p-4">
-                {/* CAPTCHA Error Alert */}
-                {captchaError && (
-                  <Alert variant="warning" className="mb-3">
-                    <i className="fas fa-exclamation-triangle me-2"></i>
-                    {captchaError}
-                  </Alert>
-                )}
-
                 {/* Login Buttons */}
                 <LoginForm
                   loginLoading={loginLoading}
-                  captchaToken={captchaToken}
                   handleLogin={handleLogin}
-                  handleCaptchaVerify={handleCaptchaVerify}
-                  handleCaptchaError={handleCaptchaError}
-                  handleCaptchaExpire={handleCaptchaExpire}
                 />
 
                 {/* Help Text */}

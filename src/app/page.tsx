@@ -4,8 +4,6 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { Container, Row, Col, Card, Button } from 'react-bootstrap'
 import { useAuth } from '@/contexts/AuthContext'
-import CaptchaWidget from '@/components/CaptchaWidget'
-import { validateCaptchaToken, CAPTCHA_ERRORS } from '@/lib/captcha'
 import LegalInformationSection from '@/components/LegalInformationSection'
 import LoginForm from '@/components/LoginForm'
 
@@ -37,19 +35,10 @@ export default function HomePage() {
  * Landing page for unauthenticated users
  */
 function LandingPage() {
-  const [captchaToken, setCaptchaToken] = useState<string | null>(null)
-  const [captchaError, setCaptchaError] = useState<string | null>(null)
   const [loginLoading, setLoginLoading] = useState(false)
 
   const handleLogin = async (provider: 'google' | 'github') => {
-    // Validate CAPTCHA token before login
-    if (!validateCaptchaToken(captchaToken)) {
-      setCaptchaError(CAPTCHA_ERRORS.MISSING_TOKEN)
-      return
-    }
-
     setLoginLoading(true)
-    setCaptchaError(null)
 
     try {
       // Redirect to our authentication endpoint
@@ -57,24 +46,8 @@ function LandingPage() {
     } catch (error) {
       console.error('Login error:', error)
       alert('登入失敗，請稍後再試')
-      setCaptchaToken(null) // Reset CAPTCHA on error
       setLoginLoading(false)
     }
-  }
-
-  const handleCaptchaVerify = (token: string) => {
-    setCaptchaToken(token)
-    setCaptchaError(null)
-  }
-
-  const handleCaptchaError = () => {
-    setCaptchaToken(null)
-    setCaptchaError(CAPTCHA_ERRORS.VERIFICATION_FAILED)
-  }
-
-  const handleCaptchaExpire = () => {
-    setCaptchaToken(null)
-    setCaptchaError(CAPTCHA_ERRORS.EXPIRED_TOKEN)
   }
 
   return (
@@ -94,11 +67,7 @@ function LandingPage() {
               {/* LoginForm 元件 */}
               <LoginForm
                 loginLoading={loginLoading}
-                captchaToken={captchaToken}
                 handleLogin={handleLogin}
-                handleCaptchaVerify={handleCaptchaVerify}
-                handleCaptchaError={handleCaptchaError}
-                handleCaptchaExpire={handleCaptchaExpire}
               />
             </Col>
             <Col lg={6} className="text-center">

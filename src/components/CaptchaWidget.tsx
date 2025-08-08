@@ -1,6 +1,6 @@
 'use client';
 
-import { Turnstile } from '@marsidev/react-turnstile';
+// import { Turnstile } from '@marsidev/react-turnstile'; // REMOVED: CAPTCHA functionality disabled
 import { useState } from 'react';
 
 interface CaptchaWidgetProps {
@@ -68,7 +68,12 @@ export default function CaptchaWidget({
       )}
       
       <div className="d-flex align-items-center">
-        <Turnstile
+        {/* CAPTCHA DISABLED - Turnstile component removed */}
+        <div className="alert alert-info">
+          <i className="fas fa-info-circle me-2"></i>
+          CAPTCHA功能已停用
+        </div>
+        {/* <Turnstile
           siteKey={siteKey}
           onSuccess={handleVerify}
           onError={handleError}
@@ -83,7 +88,7 @@ export default function CaptchaWidget({
             opacity: disabled ? 0.5 : 1,
             pointerEvents: disabled ? 'none' : 'auto',
           }}
-        />
+        /> */}
         
         {isLoading && (
           <div className="ms-2">

@@ -1,23 +1,14 @@
 import React from 'react';
 import { Button } from 'react-bootstrap';
-import CaptchaWidget from './CaptchaWidget';
 
 interface LoginFormProps {
   loginLoading: boolean;
-  captchaToken: string | null;
   handleLogin: (provider: 'google' | 'github') => void;
-  handleCaptchaVerify: (token: string) => void;
-  handleCaptchaError: () => void;
-  handleCaptchaExpire: () => void;
 }
 
 const LoginForm: React.FC<LoginFormProps> = ({
   loginLoading,
-  captchaToken,
   handleLogin,
-  handleCaptchaVerify,
-  handleCaptchaError,
-  handleCaptchaExpire,
 }) => (
   <>
     <div className="d-grid gap-3">
@@ -25,7 +16,7 @@ const LoginForm: React.FC<LoginFormProps> = ({
         variant="danger"
         size="lg"
         onClick={() => handleLogin('google')}
-        disabled={loginLoading || !captchaToken}
+        disabled={loginLoading}
         className="d-flex align-items-center justify-content-center"
       >
         {loginLoading ? (
@@ -45,7 +36,7 @@ const LoginForm: React.FC<LoginFormProps> = ({
         variant="dark"
         size="lg"
         onClick={() => handleLogin('github')}
-        disabled={loginLoading || !captchaToken}
+        disabled={loginLoading}
         className="d-flex align-items-center justify-content-center"
       >
         {loginLoading ? (
@@ -60,17 +51,6 @@ const LoginForm: React.FC<LoginFormProps> = ({
           </>
         )}
       </Button>
-    </div>
-
-    {/* CAPTCHA Widget */}
-    <div className="mb-4">
-      <label className="form-label">人機驗證</label>
-      <CaptchaWidget
-        onVerify={handleCaptchaVerify}
-        onError={handleCaptchaError}
-        onExpire={handleCaptchaExpire}
-        disabled={loginLoading}
-      />
     </div>
   </>
 );

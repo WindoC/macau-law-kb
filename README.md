@@ -273,6 +273,7 @@ npm run type-check   # TypeScript type checking
 - JWT tokens for API authentication
 - HTTP-only cookies for session management
 - Role-based access control
+- Streamlined login process (CAPTCHA removed for improved user experience)
 
 ### Data Protection
 - Sensitive data stored server-side only
